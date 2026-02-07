@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Regression and Classification models &#8212; Flood Tool 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <script src="_static/documentation_options.js?v=cb975c41"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Distance Measuring &amp; Geodetic Transformations" href="coordinates.html" />
+    <link rel="prev" title="The Team Exe Flood Prediction Tool" href="index.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="regression-and-classification-models">
+<h1>Regression and Classification models<a class="headerlink" href="#regression-and-classification-models" title="Link to this heading">¶</a></h1>
+<section id="risk-class-prediction-models">
+<h2>Risk Class Prediction Models<a class="headerlink" href="#risk-class-prediction-models" title="Link to this heading">¶</a></h2>
+<section id="all-zero-risk">
+<h3>All Zero Risk<a class="headerlink" href="#all-zero-risk" title="Link to this heading">¶</a></h3>
+<p>This model assumes all unlabeled flood risk data is near zero risk (band 1), which is the modal class for the data set. Since the dataset is strongly unbalanced, this is significantly more probable for a random class than any other band.</p>
+<p>This is a baseline model to compare other more skillful models against. While it achieve a moderately good accuracy, it is not a useful model for risk prediction, and performs poorly on most other metrics, including the scoring metric specified in the instructions.</p>
+</section>
+<section id="seven-class-flood-probability">
+<h3>Seven Class Flood Probability<a class="headerlink" href="#seven-class-flood-probability" title="Link to this heading">¶</a></h3>
+<p>A Random Forest classifier was employed to predict seven-class flood risk, using a unified preprocessing pipeline and KNN-based spatial matching.
+The model was evaluated against simpler baselines such as Logistic Regression and KNN classification, which underperformed on accuracy and non-linear patterns.
+Elevation, soil type and distance to watercourses emerged as the most informative features, while postcode-sector metadata and historic flooding contributed little due to sparsity.</p>
+</section>
+<section id="historic-flooding-classification">
+<h3>Historic Flooding Classification<a class="headerlink" href="#historic-flooding-classification" title="Link to this heading">¶</a></h3>
+<p>A Random Forest classifier was developed for historic-flooding prediction and evaluated against a Decision Tree baseline.
+Using postcode-level labelled data with unified preprocessing, stratified 5-fold cross-validation showed that the Random Forest achieved higher accuracy and substantially improved F1-scores, indicating a more reliable representation of historic flooding patterns.</p>
+</section>
+</section>
+<section id="house-price-prediction-models">
+<h2>House Price Prediction Models<a class="headerlink" href="#house-price-prediction-models" title="Link to this heading">¶</a></h2>
+<section id="all-england-median">
+<h3>All England median<a class="headerlink" href="#all-england-median" title="Link to this heading">¶</a></h3>
+<p>This model assumes all house price data can be imputed with the median house price for England. This is a baseline model to compare against. While it achieve a moderate error metric scores, it is not a useful model for risk prediction, and has very little skill.</p>
+</section>
+<section id="housepricesxgbregressor">
+<h3>HousePricesXGBRegressor<a class="headerlink" href="#housepricesxgbregressor" title="Link to this heading">¶</a></h3>
+<p>A combination of unit and sector data were selected as the features. A robust scaler was applied to deal with the heavily skewed numerical features, and OneHotEncoding was applied only on the soilType with the rest of categorical features dropped due to the high number of unique values.
+A modified XGBoost regression model was utilized for this prediction due to (1) its ability to use a validation set during training, (2) good performance in terms of prediction and training time, and (3) the well-balanced training vs validation fit.
+Overall, the most significant improvement was due to applying a log-transformer on the target variable, which resulted in a reduction in the RMSE, and MAE errors. This is expected because the median house price had significant outliers (up to ~8 million GBP).</p>
+</section>
+</section>
+<section id="local-authority-prediction-models">
+<h2>Local Authority Prediction Models<a class="headerlink" href="#local-authority-prediction-models" title="Link to this heading">¶</a></h2>
+<section id="modal-local-authority-model">
+<h3>Modal Local Authority Model<a class="headerlink" href="#modal-local-authority-model" title="Link to this heading">¶</a></h3>
+<p>This model assumes all unlabeled data belongs to the most common Local Authority in the available training data. This is a baseline model to compare against. In this case, it does not achieve good accuracy and is generally a poor model to use.</p>
+</section>
+<section id="arbitrary-location-analysis">
+<h3>Arbitrary Location Analysis<a class="headerlink" href="#arbitrary-location-analysis" title="Link to this heading">¶</a></h3>
+<p>We utilized KNN models to predict flood risk and Local Authority for arbitrary coordinates. Through Grid Search Cross-Validation, we optimized classification (k=5) and regression (k=15, distance-weighted) parameters.
+Relying solely on OSGB36 coordinates, our spatial models significantly outperformed the baseline by leveraging spatial autocorrelation. Additionally, we implemented a meshgrid algorithm to visualize continuous flood risk across the UK.</p>
+</section>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Flood Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Regression and Classification models</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#risk-class-prediction-models">Risk Class Prediction Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#house-price-prediction-models">House Price Prediction Models</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#local-authority-prediction-models">Local Authority Prediction Models</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Distance Measuring &amp; Geodetic Transformations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visualization.html">Visualising HistoricFlooding &amp; FloodRisk with Local Authority</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="index.html" title="previous chapter">The Team Exe Flood Prediction Tool</a></li>
+      <li>Next: <a href="coordinates.html" title="next chapter">Distance Measuring &amp; Geodetic Transformations</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, n/a.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="_sources/models.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

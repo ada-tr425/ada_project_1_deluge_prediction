@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>flood_tool.models.house_prices_models &#8212; Flood Tool 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=12dfc556" />
+    <script src="../../../_static/documentation_options.js?v=cb975c41"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for flood_tool.models.house_prices_models</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">xgboost</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">xgb</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+
+<span class="c1"># TODO: optimize hyperparameters</span>
+
+
+<div class="viewcode-block" id="HousePricesXGBRegressor">
+<a class="viewcode-back" href="../../../index.html#flood_tool.models.house_prices_models.HousePricesXGBRegressor">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">HousePricesXGBRegressor</span><span class="p">(</span><span class="n">xgb</span><span class="o">.</span><span class="n">XGBRegressor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;An XGBoost regression model to predict house prices at utilizing</span>
+<span class="sd">    postcode and one of (sector-level or district-level) data.</span>
+
+<span class="sd">    Inherits from xgboost&#39;s XGBRegressor.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the XGBoost regression model.&quot;&quot;&quot;</span>
+
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span>
+            <span class="n">early_stopping_rounds</span><span class="o">=</span><span class="mi">15</span><span class="p">,</span>
+            <span class="n">eval_metric</span><span class="o">=</span><span class="s1">&#39;rmse&#39;</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="HousePricesXGBRegressor.fit">
+<a class="viewcode-back" href="../../../index.html#flood_tool.models.house_prices_models.HousePricesXGBRegressor.fit">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fit the XGBoost regression model to the merged dataset.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : pandas.DataFrame</span>
+<span class="sd">            The input features for training containing merged postcode,</span>
+<span class="sd">            and one of (sector-level or district-level) data.</span>
+<span class="sd">        y : pandas.Series</span>
+<span class="sd">            The target variable representing house prices with log1p</span>
+<span class="sd">            transformation applied.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        XGBoost model</span>
+<span class="sd">            The fitted model.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Apply log1p transformation to the target variable</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+
+        <span class="c1"># Handle eval_set if provided, and apply log1p transformation to the</span>
+        <span class="c1"># target variable in each eval set</span>
+        <span class="n">eval_set</span> <span class="o">=</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s1">&#39;eval_set&#39;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">eval_set</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">eval_set_transformed</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">X_eval</span><span class="p">,</span> <span class="n">y_eval</span> <span class="ow">in</span> <span class="n">eval_set</span><span class="p">:</span>
+                <span class="n">y_eval_transformed</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">y_eval</span><span class="p">)</span>
+                <span class="n">eval_set_transformed</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">X_eval</span><span class="p">,</span> <span class="n">y_eval_transformed</span><span class="p">))</span>
+            <span class="n">kwargs</span><span class="p">[</span><span class="s1">&#39;eval_set&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">eval_set_transformed</span>
+
+        <span class="k">return</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HousePricesXGBRegressor.predict">
+<a class="viewcode-back" href="../../../index.html#flood_tool.models.house_prices_models.HousePricesXGBRegressor.predict">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">postcodes</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Predict house prices for the given input features.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : pandas.DataFrame</span>
+<span class="sd">            The input features for prediction containing merged postcode,</span>
+<span class="sd">            and sector-level data.</span>
+<span class="sd">        postcodes : array-like, optional</span>
+<span class="sd">            The postcodes corresponding to the input features.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.Series</span>
+<span class="sd">            A Series containing the predicted house prices, indexed by</span>
+<span class="sd">            postcodes if provided. Applies an expm1 transformation to</span>
+<span class="sd">            revert the log1p transformation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">y_pred</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">y_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">expm1</span><span class="p">(</span><span class="n">y_pred</span><span class="p">)</span>
+
+        <span class="c1"># Check if postcodes are provided for indexing</span>
+        <span class="k">if</span> <span class="n">postcodes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+                <span class="n">y_pred</span><span class="p">,</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">postcodes</span><span class="p">),</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;medianPrice&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;medianPrice&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="HousePricesXGBRegressor.predict_from_postcodes">
+<a class="viewcode-back" href="../../../index.html#flood_tool.models.house_prices_models.HousePricesXGBRegressor.predict_from_postcodes">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_from_postcodes</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                               <span class="n">postcode_pred</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                               <span class="n">postcode_nan</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+                               <span class="n">X</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Predict house prices for a list of postcodes, handling missing data.</span>
+
+<span class="sd">        Parameters:</span>
+<span class="sd">        ----------</span>
+<span class="sd">        postcodes : list[str]</span>
+<span class="sd">            A list of all postcodes for which predictions are required.</span>
+<span class="sd">        postcode_pred : list[str]</span>
+<span class="sd">            A list of postcodes that have sector/district data available</span>
+<span class="sd">            for prediction.</span>
+<span class="sd">        postcode_nan : list[str]</span>
+<span class="sd">            A list of postcodes that do not have sector/district data</span>
+<span class="sd">            available.</span>
+<span class="sd">        X : pd.DataFrame</span>
+<span class="sd">            The input features for prediction containing merged postcode,</span>
+<span class="sd">            and sector/district-level data.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">        -------</span>
+<span class="sd">        pd.Series</span>
+<span class="sd">            A Series containing the predicted house prices for all</span>
+<span class="sd">            postcodes, with fallback values for those without data.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># To be used for postcodes without sector/district data</span>
+        <span class="c1"># median_house_price = np.full(len(postcode_nan), np.median(y_pred))</span>
+        <span class="n">median_house_price</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">postcode_nan</span><span class="p">),</span> <span class="mf">245000.00</span><span class="p">)</span>
+        <span class="n">y_nan</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+            <span class="n">median_house_price</span><span class="p">,</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">postcode_nan</span><span class="p">),</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;medianPrice&quot;</span>
+        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># If there are no postcodes with data, return only the fallback</span>
+            <span class="k">return</span> <span class="n">y_nan</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+
+        <span class="c1"># Predict for postcodes with sector/district data</span>
+        <span class="n">y_pred</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">postcodes</span><span class="o">=</span><span class="n">postcode_pred</span><span class="p">)</span>
+
+        <span class="c1"># Combine predictions and fallback values into one Series</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">y_pred</span><span class="p">,</span> <span class="n">y_nan</span><span class="p">])</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">y</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Flood Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">Regression and Classification models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../coordinates.html">Distance Measuring &amp; Geodetic Transformations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../visualization.html">Visualising HistoricFlooding &amp; FloodRisk with Local Authority</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, n/a.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

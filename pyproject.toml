@@ -1,0 +1,70 @@
+# project.toml - drop-in replacement for setup.py using PEP 621
+# Edit file as necessary for your project as things update.
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flood-tool"
+version = "0.1.0"
+description = "Flood tool"
+readme = "README.md"
+requires-python = ">=3.13"
+authors = [
+    { name = "Wing Him Kao", email = "wing-him.kao25@imperial.ac.uk" },
+    { name = "Hassan Almarzooq", email = "hassan.almarzooq25@imperial.ac.uk" },
+    { name = "Indah Dewi", email = "indah.dewi25@imperial.ac.uk" },
+    { name = "Tingyu Rao", email = "tingyu.rao25@imperial.ac.uk" },
+    { name = "Tsuyu Huang", email = "tsuyu.huang25@imperial.ac.uk" },
+    { name = "Zhongkai Yuan", email = "zhongkai.yuan25@imperial.ac.uk" },
+    { name = "Kaiqing Deng", email = "kaiqing.deng25@imperial.ac.uk" },
+    { name = "Chuan Ju", email = "chuan.ju25@imperial.ac.uk" }
+]
+keywords = ["flood prediction"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.13"
+]
+
+dependencies = [
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "folium",
+    "scikit-learn",
+    "xgboost",
+    "cartopy",
+    "geopandas",
+    "fiona",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=6.0",
+    "pytest-cov",
+    "pytest-timeout",
+]
+lint = [
+    "black",
+    "flake8"
+]
+docs = [
+    "sphinx",
+    "sphinx-rtd-theme",
+    "numpydoc"
+]
+
+[project.urls]
+Homepage = "https://example.org/ads-deluge-flood-tool"
+Repository = "https://github.com/ese-ada-lovelace-2024/ads-deluge"
+
+[project.scripts]
+flood-tool = "flood_tool.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["flood_tool/*"]
+
+[tool.setuptools.package-data]
+include = ["flood_tool/resources/*"]

@@ -1,0 +1,23 @@
+# Keep this file up to date for your team.
+
+# Ignore all .ipynb_checkpoints folders/Python cache files
+*~
+_pycache_/
+.ipynb_checkpoints/
+*.pyc
+
+# Ignore Pytest cache
+.pytest_cache/
+
+# Ignore Mac OS X temporary files
+.DS_Store
+
+# Ignore build/installation temporary files
+build/
+*.egg-info/
+.vscode/
+*.pkl
+docs/.buildinfo
+docs/.doctrees/
+notebooks/Data_Visualisation_Historically_Flooded_RUN.ipynb
+.nojekyll

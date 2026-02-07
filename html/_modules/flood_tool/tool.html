@@ -1,0 +1,1347 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>flood_tool.tool &#8212; Flood Tool 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../_static/alabaster.css?v=12dfc556" />
+    <script src="../../_static/documentation_options.js?v=cb975c41"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+   
+  <link rel="stylesheet" href="../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for flood_tool.tool</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;Example module in template package.&quot;&quot;&quot;</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.models.location_models</span><span class="w"> </span><span class="kn">import</span> <span class="n">KNNLocalAuthorityModel</span><span class="p">,</span> <span class="n">KNNFloodRiskModel</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections.abc</span><span class="w"> </span><span class="kn">import</span> <span class="n">Sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">List</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.neighbors</span><span class="w"> </span><span class="kn">import</span> <span class="n">NearestNeighbors</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.ensemble</span><span class="w"> </span><span class="kn">import</span> <span class="n">RandomForestRegressor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.multioutput</span><span class="w"> </span><span class="kn">import</span> <span class="n">MultiOutputRegressor</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">sklearn.model_selection</span><span class="w"> </span><span class="kn">import</span> <span class="n">train_test_split</span>
+
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">.geo</span><span class="w"> </span><span class="kn">import</span> <span class="o">*</span>  <span class="c1"># noqa: F401, F403</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.geo</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_gps_lat_long_from_easting_northing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.models.seven_class_tool</span><span class="w"> </span><span class="kn">import</span> <span class="n">SevenClassTool</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_csv_from_resources</span><span class="p">,</span> <span class="n">read_csv_from_example_data</span><span class="p">,</span> \
+                   <span class="n">read_csv_from_preprocessed_data</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.models</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AllMinimumRiskModel</span><span class="p">,</span>
+    <span class="n">AllEnglandMedianPriceModel</span><span class="p">,</span>
+    <span class="n">AllFalseModel</span><span class="p">,</span>
+    <span class="n">RandomBinaryClassifierModel</span><span class="p">,</span>
+    <span class="n">ModalLocalAuthorityModel</span><span class="p">,</span>
+    <span class="n">HousePricesXGBRegressor</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">.price_proc</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">unit_district_merge</span><span class="p">,</span>
+    <span class="n">unit_sector_merge</span><span class="p">,</span>
+    <span class="n">house_proc_pipeline</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;Tool&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;flood_class_from_postcode_models&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;flood_class_from_location_models&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;house_price_models&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;local_authority_models&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;historic_flooding_models&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1"># dictionaries with keys of short name and values of long name of</span>
+<span class="c1"># classification/regression models</span>
+
+<span class="c1"># You should add your own models in the relevant dictionary here</span>
+<span class="c1"># in the format &#39;short_name&#39;: &#39;Long Name&#39;</span>
+<span class="n">flood_class_from_postcode_models</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;all_minimum_risk&quot;</span><span class="p">:</span> <span class="s2">&quot;All minimum risk&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;seven_class_tool&quot;</span><span class="p">:</span> <span class="s2">&quot;Seven Class Probability Model&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">flood_class_from_location_models</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;all_minimum_risk&quot;</span><span class="p">:</span> <span class="s2">&quot;All minimum risk&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;seven_class_tool&quot;</span><span class="p">:</span> <span class="s2">&quot;Seven Class Probability Model&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;knn&quot;</span><span class="p">:</span> <span class="s2">&quot;K-Nearest Neighbors&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">historic_flooding_models</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;all_false&quot;</span><span class="p">:</span> <span class="s2">&quot;All False&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;random_classification&quot;</span><span class="p">:</span> <span class="s2">&quot;Random Classification&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;historic_rf&quot;</span><span class="p">:</span> <span class="s2">&quot;Random Forest Historic Flood Classifier&quot;</span><span class="p">,</span>
+    
+<span class="p">}</span>
+<span class="n">house_price_models</span> <span class="o">=</span> <span class="p">{</span>    
+    <span class="s2">&quot;house_prices_xgb&quot;</span><span class="p">:</span> <span class="s2">&quot;HousePricesXGBRegressor&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;all_england_median&quot;</span><span class="p">:</span> <span class="s2">&quot;All England median price&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+<span class="n">local_authority_models</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;modal_local_authority&quot;</span><span class="p">:</span> <span class="s2">&quot;Modal Local Authority&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;knn&quot;</span><span class="p">:</span> <span class="s2">&quot;K-Nearest Neighbors&quot;</span><span class="p">,</span> <span class="c1">#add</span>
+<span class="p">}</span>
+
+<span class="n">IMPUTATION_CONSTANTS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s2">&quot;soilType&quot;</span><span class="p">:</span> <span class="s2">&quot;Unsurveyed/Urban&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;elevation&quot;</span><span class="p">:</span> <span class="mf">60.0</span><span class="p">,</span>
+    <span class="s2">&quot;nearestWatercourse&quot;</span><span class="p">:</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;distanceToWatercourse&quot;</span><span class="p">:</span> <span class="mi">80</span><span class="p">,</span>
+    <span class="s2">&quot;localAuthority&quot;</span><span class="p">:</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">,</span>
+<span class="p">}</span>
+
+<span class="n">DEFAULT_FEATURE_DATA</span> <span class="o">=</span> <span class="n">read_csv_from_example_data</span><span class="p">(</span><span class="s2">&quot;postcodes_unlabelled.csv&quot;</span><span class="p">)</span>
+<span class="n">DEFAULT_UNIT_DATA</span> <span class="o">=</span> <span class="n">read_csv_from_resources</span><span class="p">(</span><span class="s2">&quot;postcodes_labelled.csv&quot;</span><span class="p">)</span>
+<span class="n">DEFAULT_SECTOR_DATA</span> <span class="o">=</span> <span class="n">read_csv_from_resources</span><span class="p">(</span><span class="s2">&quot;sector_data.csv&quot;</span><span class="p">)</span>
+<span class="n">DEFAULT_DISTRICT_DATA</span> <span class="o">=</span> <span class="n">read_csv_from_resources</span><span class="p">(</span><span class="s2">&quot;district_data.csv&quot;</span><span class="p">)</span>
+<span class="n">PREPROCESSED_UNIT_DATA</span> <span class="o">=</span> <span class="n">read_csv_from_preprocessed_data</span><span class="p">(</span><span class="s2">&quot;postcodes_impute_postcode_method.csv&quot;</span><span class="p">)</span>
+<span class="n">PREPROCESSED_UNIT_DATA_KNN</span> <span class="o">=</span> <span class="n">read_csv_from_preprocessed_data</span><span class="p">(</span><span class="s2">&quot;postcodes_impute_KNN.csv&quot;</span><span class="p">)</span>
+<span class="n">PREPROCESSED_SECTOR_DATA</span> <span class="o">=</span> <span class="n">read_csv_from_preprocessed_data</span><span class="p">(</span><span class="s2">&quot;sector_preprocessed.csv&quot;</span><span class="p">)</span>
+<span class="n">PREPROCESSED_DISTRICT_DATA</span> <span class="o">=</span> <span class="n">read_csv_from_preprocessed_data</span><span class="p">(</span><span class="s2">&quot;district_imputed.csv&quot;</span><span class="p">)</span>
+<span class="n">PREPROCESSED_RAINFALL_STATION</span> <span class="o">=</span> <span class="n">read_csv_from_preprocessed_data</span><span class="p">(</span><span class="s2">&quot;rainfall_stations.csv&quot;</span><span class="p">)</span>
+<span class="n">PREPROCESSED_LEVEL_STATION</span> <span class="o">=</span> <span class="n">read_csv_from_preprocessed_data</span><span class="p">(</span><span class="s2">&quot;level_stations_imputed.csv&quot;</span><span class="p">)</span>
+<span class="n">PREPROCESSED_WET_DAY</span> <span class="o">=</span> <span class="n">read_csv_from_example_data</span><span class="p">(</span><span class="s2">&quot;wet_day_preprocessed.csv&quot;</span><span class="p">)</span>
+<span class="n">PREPROCESSED_TYPICAL_DAY</span> <span class="o">=</span> <span class="n">read_csv_from_example_data</span><span class="p">(</span><span class="s2">&quot;typical_day_preprocessed.csv&quot;</span><span class="p">)</span>
+
+<span class="n">RAW_FEATURES</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;postcode&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;easting&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;northing&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;soilType&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;elevation&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;nearestWatercourse&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;distanceToWatercourse&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;localAuthority&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+
+<div class="viewcode-block" id="Tool">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">Tool</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Tool(X=DEFAULT_FEATURE_DATA, unit_data=DEFAULT_UNIT_DATA,</span>
+<span class="sd">                sector_data=DEFAULT_SECTOR_DATA,</span>
+<span class="sd">                district_data=DEFAULT_DISTRICT_DATA,</span>
+<span class="sd">                unit_prep=PREPROCESSED_UNIT_DATA,</span>
+<span class="sd">                unit_prep_KNN=PREPROCESSED_UNIT_DATA_KNN,</span>
+<span class="sd">                sector_prep=PREPROCESSED_SECTOR_DATA,</span>
+<span class="sd">                district_prep=PREPROCESSED_DISTRICT_DATA,</span>
+<span class="sd">                rainfall_stations=PREPROCESSED_RAINFALL_STATION</span>
+<span class="sd">                level_stations=PREPROCESSED_LEVEL_STATION</span>
+<span class="sd">                additional_data={})</span>
+
+<span class="sd">    Class to interact with a postcode database file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">X</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">DEFAULT_FEATURE_DATA</span><span class="p">,</span>
+        <span class="n">unit_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">DEFAULT_UNIT_DATA</span><span class="p">,</span>
+        <span class="n">sector_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">DEFAULT_SECTOR_DATA</span><span class="p">,</span>
+        <span class="n">district_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">DEFAULT_DISTRICT_DATA</span><span class="p">,</span>
+        <span class="n">unit_prep</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">PREPROCESSED_UNIT_DATA</span><span class="p">,</span>
+        <span class="n">unit_prep_knn</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">PREPROCESSED_UNIT_DATA_KNN</span><span class="p">,</span>
+        <span class="n">sector_prep</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">PREPROCESSED_SECTOR_DATA</span><span class="p">,</span>
+        <span class="n">district_prep</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">PREPROCESSED_DISTRICT_DATA</span><span class="p">,</span>
+        <span class="n">rainfall_stations</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">PREPROCESSED_RAINFALL_STATION</span><span class="p">,</span>
+        <span class="n">level_stations</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">=</span> <span class="n">PREPROCESSED_LEVEL_STATION</span><span class="p">,</span>
+        <span class="n">additional_data</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{},</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X: DataFrame, optional</span>
+<span class="sd">            DataFrame containing unlabelled feature data (see the example</span>
+<span class="sd">            unlabelled postcode data file for the expected format) for use</span>
+<span class="sd">            in models and lookups.</span>
+
+<span class="sd">        unit_data: DataFrame, optional</span>
+<span class="sd">            DataFrame containing features and class labels for specific</span>
+<span class="sd">            postcodes.</span>
+
+<span class="sd">        sector_data : DataFrame, optional</span>
+<span class="sd">            DataFrame containing information on households by postcode sector.</span>
+
+<span class="sd">        district_data : DataFrame, optional</span>
+<span class="sd">            DataFrame containing information on households by postcode</span>
+<span class="sd">            district.</span>
+
+<span class="sd">        unit_prep: DataFrame, optional</span>
+<span class="sd">            DataFrame containing features and class labels for specific</span>
+<span class="sd">            postcodes, preprocessed with imputation using postcodes method.</span>
+
+<span class="sd">        unit_prep_knn: DataFrame, optional</span>
+<span class="sd">            DataFrame containing features and class labels for specific</span>
+<span class="sd">            postcodes, preprocessed with imputation using KNN method.</span>
+
+<span class="sd">        sector_prep : DataFrame, optional</span>
+<span class="sd">            DataFrame containing information on households by postcode sector, preprocessed.</span>
+
+<span class="sd">        district_prep : DataFrame, optional</span>
+<span class="sd">            DataFrame containing information on households by postcode district, preprocessed.</span>
+
+<span class="sd">        rainfall_stations : DataFrame, optional</span>
+<span class="sd">            DataFrame containing information on rainfall stations, preprocessed.</span>
+
+<span class="sd">        level_stations : DataFrame, optional</span>
+<span class="sd">            DataFrame containing information on water level stations, preprocessed.</span>
+
+<span class="sd">        additional_data: dict, optional</span>
+<span class="sd">            Dictionary containing additional DataFrames with additional</span>
+<span class="sd">            information on households.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span> <span class="o">=</span> <span class="n">unit_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sector_data</span> <span class="o">=</span> <span class="n">sector_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">district_data</span> <span class="o">=</span> <span class="n">district_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_data</span> <span class="o">=</span> <span class="n">additional_data</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unit_prep</span> <span class="o">=</span> <span class="n">unit_prep</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unit_prep_knn</span> <span class="o">=</span> <span class="n">unit_prep_knn</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sector_prep</span> <span class="o">=</span> <span class="n">sector_prep</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">district_prep</span> <span class="o">=</span> <span class="n">district_prep</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">rainfall_stations</span> <span class="o">=</span> <span class="n">rainfall_stations</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">level_stations</span> <span class="o">=</span> <span class="n">level_stations</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span> <span class="o">=</span> <span class="n">unit_data</span><span class="p">[</span><span class="n">RAW_FEATURES</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">X</span> <span class="o">=</span> <span class="n">X</span>
+
+        <span class="k">if</span> <span class="n">X</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">X</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span>
+                <span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;postcode&quot;</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;first&quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">models</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c1"># continue your work here</span>
+
+<div class="viewcode-block" id="Tool.fit_to_data">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.fit_to_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit_to_data</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">unit_data</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">models</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[],</span>
+        <span class="n">update_hyperparameters</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        fit_to_data(unit_data=None, models=[], update_hyperparameters=False</span>
+<span class="sd">                    **kwargs)</span>
+
+<span class="sd">        Fit/train model or models using the initialised data, optionally</span>
+<span class="sd">        updating training set and hyperparameters.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        unit_data : DataFrame, optional</span>
+<span class="sd">            DataFrame containing additional features and class labels for</span>
+<span class="sd">            specific postcodes.</span>
+<span class="sd">        models : str or list of model keys</span>
+<span class="sd">            Models to fit/train</span>
+<span class="sd">        update_hyperparameters : bool, optional</span>
+<span class="sd">            If True, models may tune their hyperparameters, where</span>
+<span class="sd">            possible. If False, models will use their default hyperparameters.</span>
+<span class="sd">        **kwargs : dict, optional</span>
+<span class="sd">            Additional keyword arguments to pass to model fitting methods.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Perform any necessary updates to the data</span>
+
+        <span class="k">if</span> <span class="n">unit_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span><span class="p">,</span> <span class="n">unit_data</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span>
+                <span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;postcode&quot;</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;last&quot;</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span>
+                <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span><span class="p">,</span> <span class="n">unit_data</span><span class="p">[</span><span class="n">RAW_FEATURES</span><span class="p">]],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span>
+            <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span>
+                <span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;postcode&quot;</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;last&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">models</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">models</span> <span class="o">=</span> <span class="p">[</span><span class="n">models</span><span class="p">]</span>
+
+        <span class="n">X_loc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span><span class="p">[[</span><span class="s2">&quot;easting&quot;</span><span class="p">,</span> <span class="s2">&quot;northing&quot;</span><span class="p">]]</span>
+
+        <span class="c1"># Next fit/train each model in turn</span>
+        <span class="k">for</span> <span class="n">model</span> <span class="ow">in</span> <span class="n">models</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">update_hyperparameters</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;tuning </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2"> hyperparameters&quot;</span><span class="p">)</span>
+                <span class="c1"># Do your hyperparameter tuning for the specified model</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;training </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="c1"># Do your regular fitting/training for the specified model</span>
+
+                <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;random_classification&quot;</span><span class="p">:</span>
+                    <span class="c1"># Example of fitting a model</span>
+                    <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span><span class="p">[[</span><span class="s2">&quot;easting&quot;</span><span class="p">,</span> <span class="s2">&quot;northing&quot;</span><span class="p">]]</span>
+                    <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span><span class="p">[</span><span class="s2">&quot;historicallyFlooded&quot;</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">model</span><span class="p">]</span> <span class="o">=</span> <span class="n">RandomBinaryClassifierModel</span><span class="p">(</span>
+                        <span class="n">seed</span><span class="o">=</span><span class="mi">42</span>
+                    <span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;modal_local_authority&quot;</span><span class="p">:</span>
+                    <span class="c1"># Example of fitting a model</span>
+                    <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span><span class="p">[[</span><span class="s2">&quot;easting&quot;</span><span class="p">,</span> <span class="s2">&quot;northing&quot;</span><span class="p">]]</span>
+                    <span class="n">y</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span><span class="p">[</span><span class="s2">&quot;localAuthority&quot;</span><span class="p">]</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">model</span><span class="p">]</span> <span class="o">=</span> <span class="n">ModalLocalAuthorityModel</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
+
+                <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;seven_class_tool&quot;</span><span class="p">:</span>
+                    <span class="n">model_instance</span> <span class="o">=</span> <span class="n">SevenClassTool</span><span class="p">(</span><span class="n">label_col</span><span class="o">=</span><span class="s2">&quot;riskLabel&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span><span class="p">)</span>
+                    <span class="n">model_instance</span><span class="o">.</span><span class="n">set_reference_data</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span><span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;seven_class_tool&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">model_instance</span>
+
+
+
+                <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;house_prices_xgb&quot;</span><span class="p">:</span>
+                    <span class="n">merge_sector</span> <span class="o">=</span> <span class="n">unit_sector_merge</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">unit_prep</span><span class="p">,</span>
+                                                     <span class="bp">self</span><span class="o">.</span><span class="n">sector_prep</span><span class="p">)</span>
+    
+                    <span class="bp">self</span><span class="o">.</span><span class="n">house_proc_pipe</span> <span class="o">=</span> <span class="n">house_proc_pipeline</span><span class="p">(</span>
+                        <span class="n">merge_with</span><span class="o">=</span><span class="s1">&#39;sector&#39;</span><span class="p">)</span>
+
+                    <span class="n">X</span> <span class="o">=</span> <span class="n">merge_sector</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;medianPrice&#39;</span><span class="p">])</span>
+                    <span class="n">y</span> <span class="o">=</span> <span class="n">merge_sector</span><span class="p">[</span><span class="s1">&#39;medianPrice&#39;</span><span class="p">]</span>
+
+                    <span class="n">X_train</span><span class="p">,</span> <span class="n">X_val</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span> <span class="n">y_val</span> <span class="o">=</span> <span class="n">train_test_split</span><span class="p">(</span>
+                        <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">test_size</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+                    
+                    <span class="n">X_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">house_proc_pipe</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X_train</span><span class="p">)</span>
+                    <span class="n">X_val</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">house_proc_pipe</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X_val</span><span class="p">)</span>
+
+                    <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">model</span><span class="p">]</span> <span class="o">=</span> <span class="n">HousePricesXGBRegressor</span><span class="p">()</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                        <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">,</span>
+                        <span class="n">eval_set</span><span class="o">=</span><span class="p">[(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">),</span> <span class="p">(</span><span class="n">X_val</span><span class="p">,</span> <span class="n">y_val</span><span class="p">)],</span>
+                        <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
+                        <span class="p">)</span>
+                
+                <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;historic_rf&quot;</span><span class="p">:</span>
+
+                    <span class="kn">from</span><span class="w"> </span><span class="nn">.models.historic_flood_classifier</span><span class="w"> </span><span class="kn">import</span> <span class="n">build_historic_rf</span>
+
+                    <span class="n">df_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_prep</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>  
+                    <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">model</span><span class="p">]</span> <span class="o">=</span> <span class="n">build_historic_rf</span><span class="p">(</span><span class="n">df_train</span><span class="p">)</span>
+
+
+                <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;knn&quot;</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;knn_authority&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">KNNLocalAuthorityModel</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                        <span class="n">X_loc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span><span class="p">[</span><span class="s2">&quot;localAuthority&quot;</span><span class="p">]</span>
+                    <span class="p">)</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;knn_risk&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">KNNFloodRiskModel</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span>
+                        <span class="n">X_loc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span><span class="p">[</span><span class="s2">&quot;riskLabel&quot;</span><span class="p">]</span>
+                    <span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Tool.lookup_easting_northing">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.lookup_easting_northing">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lookup_easting_northing</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        lookup_easting_northing(postcodes, dtype=np.float64)</span>
+
+<span class="sd">        Get a dataframe of OS eastings and northings from a sequence of</span>
+<span class="sd">        input postcodes in the labelled or unlabelled datasets.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">postcodes</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+
+        <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;postcode&quot;</span><span class="p">)</span>
+        <span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">frame</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">postcodes</span><span class="p">,</span> <span class="p">[</span><span class="s2">&quot;easting&quot;</span><span class="p">,</span> <span class="s2">&quot;northing&quot;</span><span class="p">]]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Tool.lookup_lat_long">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.lookup_lat_long">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">lookup_lat_long</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">float64</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        lookup_lat_long(postcodes, dtype=np.float64)</span>
+
+<span class="sd">        Get a Pandas dataframe containing GPS latitude and longitude</span>
+<span class="sd">        information for a sequence of postcodes in the labelled or</span>
+<span class="sd">        unlabelled datasets.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">DF_east_north</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lookup_easting_northing</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+        <span class="n">lats</span><span class="p">,</span> <span class="n">lons</span> <span class="o">=</span> <span class="n">get_gps_lat_long_from_easting_northing</span><span class="p">(</span>
+                     <span class="n">DF_east_north</span><span class="p">[</span><span class="s1">&#39;easting&#39;</span><span class="p">],</span> <span class="n">DF_east_north</span><span class="p">[</span><span class="s1">&#39;northing&#39;</span><span class="p">])</span>
+        <span class="n">DF</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;longitude&quot;</span><span class="p">:</span> <span class="n">lons</span><span class="p">,</span> <span class="s2">&quot;latitude&quot;</span><span class="p">:</span> <span class="n">lats</span><span class="p">},</span> \
+                          <span class="n">index</span><span class="o">=</span><span class="n">postcodes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">DF</span></div>
+
+
+<div class="viewcode-block" id="Tool.get_postcode_district_sector">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.get_postcode_district_sector">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_postcode_district_sector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        get_postcode_district_sector(postcodes)</span>
+
+<span class="sd">        Get a Pandas dataframe containing formatted postcodes, postcode districts, </span>
+<span class="sd">        and postcode sectors for sequence of postcodes of any format.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+
+<span class="sd">        postcodes: sequence of strs</span>
+<span class="sd">            Sequence of postcodes.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+
+<span class="sd">        pandas.DataFrame</span>
+<span class="sd">            DataFrame containing formatted postcodes, postcode sectors and postcode districts </span>
+<span class="sd">            for the input postcodes.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tool = Tool()</span>
+<span class="sd">        &gt;&gt;&gt; tool.get_postcode_district_sector[&#39;M34 7QL&#39;]) # doctest: +SKIP</span>
+<span class="sd">                postcode  postcodeSector  postcodeDistrict</span>
+<span class="sd">        postcode</span>
+<span class="sd">        M34 7QL  M34 7QL           M34 7               M34</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">Postcode_District</span><span class="p">,</span> <span class="n">Postcode_Sector</span><span class="p">,</span> <span class="n">Postcode_Formatted</span> <span class="o">=</span> <span class="p">[],</span> <span class="p">[],</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)):</span>
+            <span class="n">Postcode</span> <span class="o">=</span> <span class="n">postcodes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="s2">&quot; &quot;</span> <span class="ow">in</span> <span class="n">Postcode</span><span class="p">:</span>
+                <span class="n">Split</span> <span class="o">=</span> <span class="n">Postcode</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+                <span class="n">Outward</span> <span class="o">=</span> <span class="n">Split</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">Inward</span> <span class="o">=</span> <span class="n">Split</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">Inward</span> <span class="o">=</span> <span class="n">Postcode</span><span class="p">[</span><span class="o">-</span><span class="mi">3</span><span class="p">:]</span>
+                <span class="n">Outward</span> <span class="o">=</span> <span class="n">Postcode</span><span class="p">[:</span><span class="o">-</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;+&quot;</span><span class="p">)</span>
+            <span class="n">Postcode_District</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Outward</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+            <span class="n">Postcode_Sector</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Outward</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">Inward</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+            <span class="n">Postcode_Formatted</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">Outward</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span> <span class="o">+</span> <span class="n">Inward</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+
+        <span class="n">DF</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;postcode&quot;</span><span class="p">:</span> <span class="n">Postcode_Formatted</span><span class="p">,</span> <span class="s2">&quot;postcodeSector&quot;</span><span class="p">:</span> <span class="n">Postcode_Sector</span><span class="p">,</span>
+                          <span class="s2">&quot;postcodeDistrict&quot;</span><span class="p">:</span> <span class="n">Postcode_District</span><span class="p">})</span>
+
+        <span class="k">return</span> <span class="n">DF</span></div>
+
+
+<div class="viewcode-block" id="Tool.get_station_coordinates">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.get_station_coordinates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_station_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dataframe</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        get_station_coordinates(dataframe)</span>
+
+<span class="sd">        Get a Pandas dataframe containing longitude, latitude, easting and northing coordinates</span>
+<span class="sd">        of rainfall and water level stations based on stationReference.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+
+<span class="sd">        dataframe : pandas.DataFrame</span>
+<span class="sd">            DataFrame (in the format of typical_day.csv or wet_day.csv)</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+
+<span class="sd">        pandas.DataFrame</span>
+<span class="sd">            A copy of the input DataFrame with new columns of</span>
+<span class="sd">            longitude, latitude, easting and northing coordinates.</span>
+<span class="sd">            Original DataFrame remains unmodified.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tool = Tool()</span>
+<span class="sd">        &gt;&gt;&gt; data = read_csv_from_example_data(&#39;wet_day.csv&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; data_coords = tool.get_station_coordinates(data)  # doctest: +SKIP</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">DF</span> <span class="o">=</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">lons</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">DF</span><span class="p">))</span>
+        <span class="n">lats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">DF</span><span class="p">))</span>
+        <span class="n">easts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">DF</span><span class="p">))</span>
+        <span class="n">norths</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">DF</span><span class="p">))</span>
+        <span class="n">values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">DF</span><span class="p">))</span>
+
+        <span class="c1"># Find station using stationReference</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">DF</span><span class="p">)):</span>
+            <span class="n">station_ref</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;stationReference&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span>
+            <span class="k">if</span> <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;parameter&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;rainfall&#39;</span><span class="p">:</span>
+                <span class="n">station_row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">rainfall_stations</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">rainfall_stations</span><span class="p">[</span><span class="s1">&#39;stationReference&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">station_ref</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+            <span class="k">elif</span> <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;parameter&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;level&#39;</span><span class="p">:</span>
+                <span class="n">station_row</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">level_stations</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">level_stations</span><span class="p">[</span><span class="s1">&#39;stationReference&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">station_ref</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span>
+            <span class="c1"># Get coordinates if station can be found in database</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">station_row</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">lons</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">station_row</span><span class="p">[</span><span class="s1">&#39;longitude&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">lats</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">station_row</span><span class="p">[</span><span class="s1">&#39;latitude&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">easts</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">station_row</span><span class="p">[</span><span class="s1">&#39;easting&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">norths</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">station_row</span><span class="p">[</span><span class="s1">&#39;northing&#39;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="c1"># np.nan if station cannot be found in database</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">lons</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">lats</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">easts</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">norths</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span>
+
+            <span class="c1"># Clean values column</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">DF</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">])</span>
+            <span class="k">except</span><span class="p">:</span>
+                <span class="n">Value</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">][</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;|&quot;</span><span class="p">)</span>
+                <span class="n">values</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">Value</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1"># Update columns</span>
+        <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;latitude&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lats</span>
+        <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;longitude&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lons</span>
+        <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;easting&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">easts</span>
+        <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;northing&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">norths</span>
+
+        <span class="c1"># Drop rows with no geographic coordinates found</span>
+        <span class="n">DF</span> <span class="o">=</span> <span class="n">DF</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;latitude&#39;</span><span class="p">,</span> <span class="s1">&#39;longitude&#39;</span><span class="p">])</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="s1">&#39;index&#39;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">DF</span></div>
+
+
+<div class="viewcode-block" id="Tool.handle_outliers_iqr">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.handle_outliers_iqr">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">handle_outliers_iqr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">cols</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Handle outliers in one or more DataFrame columns using the Interquartile Range (IQR) method.</span>
+<span class="sd">        Outliers are capped at lower and upper bounds derived from the 1st quartile (Q1), </span>
+<span class="sd">        3rd quartile (Q3), and IQR (1.5*IQR rule).</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pandas.DataFrame</span>
+<span class="sd">            The DataFrame containing the column(s) to process.</span>
+<span class="sd">        cols : str or list of str</span>
+<span class="sd">            Single column name (str) or list of column names to handle outliers for.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pandas.DataFrame</span>
+<span class="sd">            A copy of the input DataFrame with outliers in specified column(s) capped.</span>
+<span class="sd">            Original DataFrame remains unmodified.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tool = Tool()</span>
+<span class="sd">        &gt;&gt;&gt; import pandas as pd</span>
+<span class="sd">        &gt;&gt;&gt; df = pd.DataFrame({&#39;a&#39;: [1, 2, 3, 100, -50], &#39;b&#39;: [5, 6, 7, 200, -100]})</span>
+<span class="sd">        &gt;&gt;&gt; # Handle single column</span>
+<span class="sd">        &gt;&gt;&gt; cleaned_single = tool.handle_outliers_iqr(df, &#39;a&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; # Handle multiple columns</span>
+<span class="sd">        &gt;&gt;&gt; cleaned_multi = tool.handle_outliers_iqr(df, [&#39;a&#39;, &#39;b&#39;])  # doctest: +SKIP</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Create a copy to avoid modifying the original DataFrame</span>
+        <span class="n">df_cleaned</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Standardize input to list format for uniform processing</span>
+        <span class="n">cols_list</span> <span class="o">=</span> <span class="p">[</span><span class="n">cols</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cols</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="n">cols</span>
+
+        <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">cols_list</span><span class="p">:</span>
+            <span class="c1"># Calculate quartiles and IQR</span>
+            <span class="n">q1</span> <span class="o">=</span> <span class="n">df_cleaned</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.25</span><span class="p">)</span>
+            <span class="n">q3</span> <span class="o">=</span> <span class="n">df_cleaned</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.75</span><span class="p">)</span>
+            <span class="n">iqr</span> <span class="o">=</span> <span class="n">q3</span> <span class="o">-</span> <span class="n">q1</span>
+
+            <span class="c1"># Calculate outlier bounds</span>
+            <span class="n">lower_bound</span> <span class="o">=</span> <span class="n">q1</span> <span class="o">-</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">iqr</span>
+            <span class="n">upper_bound</span> <span class="o">=</span> <span class="n">q3</span> <span class="o">+</span> <span class="mf">1.5</span> <span class="o">*</span> <span class="n">iqr</span>
+
+            <span class="c1"># Cap outliers at the calculated bounds</span>
+            <span class="n">df_cleaned</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_cleaned</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">lower</span><span class="o">=</span><span class="n">lower_bound</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="n">upper_bound</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">df_cleaned</span></div>
+
+
+<div class="viewcode-block" id="Tool.impute_missing_values">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.impute_missing_values">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">impute_missing_values</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">dataframe</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+        <span class="n">method</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;postcode&quot;</span><span class="p">,</span>
+        <span class="n">constant_values</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="n">IMPUTATION_CONSTANTS</span><span class="p">,</span>
+        <span class="n">k</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        impute_missing_values(dataframe, method=&#39;postcode&#39;,</span>
+<span class="sd">                                constant_values=IMPUTATION_CONSTANTS)</span>
+
+<span class="sd">        Impute missing values in an unlabelled dataframe.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+
+<span class="sd">        dataframe : pandas.DataFrame</span>
+<span class="sd">            DataFrame (in the format of the unlabelled postcode data)</span>
+<span class="sd">            potentially containing missing values as NaNs, or with missing</span>
+<span class="sd">            columns.</span>
+
+<span class="sd">        method : str, optional</span>
+<span class="sd">            Method to use for imputation. Options include:</span>
+<span class="sd">            * ``&#39;postcode&#39;``, impute using median (numerical features) or mode (categorical features)</span>
+<span class="sd">            of other datapoints within the same postcode sector or postcode district in the labelled dataset.</span>
+<span class="sd">            * ``&#39;knn&#39;``, impute using median (numerical features) or mode (categorical features)</span>
+<span class="sd">            of the k-nearest neighbours based on geographic coordinates from the labelled dataset.</span>
+<span class="sd">            * ``&#39;constant&#39;``, impute using a constant value for imputation.</span>
+
+<span class="sd">        constant_values : dict, optional</span>
+<span class="sd">            Dictionary containing constant values to use for imputation in the format </span>
+<span class="sd">            ``{column_name: value}``.</span>
+<span class="sd">            Only used if method is ``&#39;constant&#39;``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+
+<span class="sd">        pandas.DataFrame</span>
+<span class="sd">            DataFrame with missing values imputed.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+
+<span class="sd">        &gt;&gt;&gt; tool = Tool()</span>
+<span class="sd">        &gt;&gt;&gt; data = read_csv_from_example_data(&#39;postcodes_missing_data.csv&#39;)</span>
+<span class="sd">        &gt;&gt;&gt; full_data = tool.impute_missing_values(data)  # doctest: +SKIP</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">DF</span> <span class="o">=</span> <span class="n">dataframe</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">unit_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Find columns with missing values that need imputing</span>
+        <span class="n">missing</span> <span class="o">=</span> <span class="n">DF</span><span class="o">.</span><span class="n">isnull</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">DF</span><span class="p">)</span>
+        <span class="n">columns_impute</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">missing</span><span class="p">[</span><span class="n">missing</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">]</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="c1"># Separate columns into numerical and categorical features</span>
+        <span class="n">columns_impute_num</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">DF</span><span class="p">[</span><span class="n">columns_impute</span><span class="p">]</span><span class="o">.</span><span class="n">select_dtypes</span><span class="p">(</span><span class="n">include</span><span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">])</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+        <span class="n">columns_impute_cat</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">DF</span><span class="p">[</span><span class="n">columns_impute</span><span class="p">]</span><span class="o">.</span><span class="n">select_dtypes</span><span class="p">(</span><span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">])</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+
+        <span class="c1"># Postcode method</span>
+        <span class="k">if</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;postcode&#39;</span><span class="p">:</span>
+            <span class="c1"># First get postcode sectors and postcode districts</span>
+            <span class="n">unit_data</span><span class="p">[</span><span class="s1">&#39;postcodeSector&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_postcode_district_sector</span><span class="p">(</span><span class="n">unit_data</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">])[</span><span class="s1">&#39;postcodeSector&#39;</span><span class="p">]</span>
+            <span class="n">unit_data</span><span class="p">[</span><span class="s1">&#39;postcodeDistrict&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_postcode_district_sector</span><span class="p">(</span><span class="n">unit_data</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">])[</span><span class="s1">&#39;postcodeDistrict&#39;</span><span class="p">]</span>
+            <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;postcodeSector&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_postcode_district_sector</span><span class="p">(</span><span class="n">DF</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">])[</span><span class="s1">&#39;postcodeSector&#39;</span><span class="p">]</span>
+            <span class="n">DF</span><span class="p">[</span><span class="s1">&#39;postcodeDistrict&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_postcode_district_sector</span><span class="p">(</span><span class="n">DF</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">])[</span><span class="s1">&#39;postcodeDistrict&#39;</span><span class="p">]</span>
+            <span class="c1">#</span>
+            <span class="c1"># Numerical columns</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns_impute_num</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Get medians of each postcode sector and postcode district from labelled dataset</span>
+                <span class="n">sector_medians</span> <span class="o">=</span> <span class="n">unit_data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;postcodeSector&quot;</span><span class="p">)[</span><span class="n">columns_impute_num</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">()</span>
+                <span class="n">district_medians</span> <span class="o">=</span> <span class="n">unit_data</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;postcodeDistrict&quot;</span><span class="p">)[</span><span class="n">columns_impute_num</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">()</span>
+                <span class="c1"># Merge medians into new dataset</span>
+                <span class="n">DF</span> <span class="o">=</span> <span class="n">DF</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">sector_medians</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;postcodeSector&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;_sector&quot;</span><span class="p">))</span>
+                <span class="n">DF</span> <span class="o">=</span> <span class="n">DF</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">district_medians</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;postcodeDistrict&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;_district&quot;</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns_impute_num</span><span class="p">:</span>
+                    <span class="c1"># First try imputing with medians of postcode sector</span>
+                    <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="o">+</span><span class="s2">&quot;_sector&quot;</span><span class="p">])</span>
+                    <span class="c1"># Then try imputing with medians of postcode district</span>
+                    <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="o">+</span><span class="s2">&quot;_district&quot;</span><span class="p">])</span>
+                    <span class="c1"># If all else fails, impute with median of entire dataset</span>
+                    <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">unit_data</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">median</span><span class="p">())</span>
+                    <span class="c1"># Remove merging columns</span>
+                    <span class="n">DF</span> <span class="o">=</span> <span class="n">DF</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">col</span><span class="o">+</span><span class="s2">&quot;_sector&quot;</span><span class="p">,</span> <span class="n">col</span><span class="o">+</span><span class="s2">&quot;_district&quot;</span><span class="p">])</span>
+            <span class="c1">#</span>
+            <span class="c1"># Categorical columns</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns_impute_cat</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Get modes of each postcode sector and postcode district from labelled dataset</span>
+                <span class="n">sector_modes</span> <span class="o">=</span> <span class="n">unit_data</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="n">columns_impute_cat</span><span class="p">)</span>\
+                            <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;postcodeSector&quot;</span><span class="p">)[</span><span class="n">columns_impute_cat</span><span class="p">]</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">mode</span><span class="p">()</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="n">district_modes</span> <span class="o">=</span> <span class="n">unit_data</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="n">columns_impute_cat</span><span class="p">)</span>\
+                            <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;postcodeDistrict&quot;</span><span class="p">)[</span><span class="n">columns_impute_cat</span><span class="p">]</span><span class="o">.</span><span class="n">agg</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="o">.</span><span class="n">mode</span><span class="p">()</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+                <span class="c1"># Merge modes into new dataset</span>
+                <span class="n">DF</span> <span class="o">=</span> <span class="n">DF</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">sector_modes</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;postcodeSector&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;_sector&quot;</span><span class="p">))</span>
+                <span class="n">DF</span> <span class="o">=</span> <span class="n">DF</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">district_modes</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="s2">&quot;postcodeDistrict&quot;</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s2">&quot;left&quot;</span><span class="p">,</span> <span class="n">suffixes</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;_district&quot;</span><span class="p">))</span>
+                <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns_impute_cat</span><span class="p">:</span>
+                    <span class="c1"># First try imputing with modes of postcode sector</span>
+                    <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="o">+</span><span class="s2">&quot;_sector&quot;</span><span class="p">])</span>
+                    <span class="c1"># Then try imputing with modes of postcode district</span>
+                    <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="o">+</span><span class="s2">&quot;_district&quot;</span><span class="p">])</span>
+                    <span class="c1"># If all else fails, use default imputation constants</span>
+                    <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">constant_values</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+                    <span class="c1"># Remove merging columns</span>
+                    <span class="n">DF</span> <span class="o">=</span> <span class="n">DF</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="n">col</span><span class="o">+</span><span class="s2">&quot;_sector&quot;</span><span class="p">,</span> <span class="n">col</span><span class="o">+</span><span class="s2">&quot;_district&quot;</span><span class="p">])</span>
+
+        <span class="c1"># knn method</span>
+        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;knn&#39;</span><span class="p">:</span>
+            <span class="c1"># Impute based on easting northing coordinates</span>
+            <span class="n">coords_labelled</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">unit_data</span><span class="p">[[</span><span class="s1">&#39;easting&#39;</span><span class="p">,</span> <span class="s1">&#39;northing&#39;</span><span class="p">]])</span>
+            <span class="n">coords_new</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">DF</span><span class="p">[[</span><span class="s1">&#39;easting&#39;</span><span class="p">,</span> <span class="s1">&#39;northing&#39;</span><span class="p">]])</span>
+            <span class="c1"># Fit nearest neighbours</span>
+            <span class="n">neighbors</span> <span class="o">=</span> <span class="n">NearestNeighbors</span><span class="p">(</span><span class="n">n_neighbors</span><span class="o">=</span><span class="n">k</span><span class="p">)</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">coords_labelled</span><span class="p">)</span>
+            <span class="c1">#</span>
+            <span class="c1"># Numerical columns</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns_impute_num</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns_impute_num</span><span class="p">:</span>
+                    <span class="n">vals</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">DF</span><span class="p">)):</span>
+                        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                            <span class="c1"># Find nearest neighbours within the labelled dataset</span>
+                            <span class="n">dists</span><span class="p">,</span> <span class="n">indexes</span> <span class="o">=</span> <span class="n">neighbors</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">([</span><span class="n">coords_new</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
+                            <span class="n">neighbor_vals</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">unit_data</span><span class="p">[</span><span class="n">col</span><span class="p">][</span><span class="n">indexes</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+                            <span class="c1"># Impute with median of k neighbours</span>
+                            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">neighbor_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">neighbor_vals</span><span class="p">)</span>
+                            <span class="c1"># If no data for all k neighbours, impute with median of entire dataset</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nanmedian</span><span class="p">(</span><span class="n">unit_data</span><span class="p">[</span><span class="n">col</span><span class="p">])</span>
+                    <span class="c1"># Replace column with imputed values</span>
+                    <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals</span>
+            <span class="c1">#</span>
+            <span class="c1"># Categorical columns</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">columns_impute_cat</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns_impute_cat</span><span class="p">:</span>
+                    <span class="n">vals</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+                    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">DF</span><span class="p">)):</span>
+                        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]):</span>
+                            <span class="c1"># Find nearest neighbours within the labelled dataset</span>
+                            <span class="n">dists</span><span class="p">,</span> <span class="n">indexes</span> <span class="o">=</span> <span class="n">neighbors</span><span class="o">.</span><span class="n">kneighbors</span><span class="p">([</span><span class="n">coords_new</span><span class="p">[</span><span class="n">i</span><span class="p">]])</span>
+                            <span class="n">neighbor_vals</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">unit_data</span><span class="p">[</span><span class="n">col</span><span class="p">][</span><span class="n">indexes</span><span class="p">[</span><span class="mi">0</span><span class="p">]])</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+                            <span class="c1"># Impute with mode of k neighbours</span>
+                            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">neighbor_vals</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">neighbor_vals</span><span class="o">.</span><span class="n">mode</span><span class="p">()</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                            <span class="c1"># If no data for all k neighbours, use default imputation constants</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="n">vals</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">constant_values</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
+                    <span class="c1"># Replace column with imputed values</span>
+                    <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">vals</span>
+
+        <span class="c1"># Constant method</span>
+        <span class="k">elif</span> <span class="n">method</span> <span class="o">==</span> <span class="s1">&#39;constant&#39;</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">columns_impute</span><span class="p">:</span>
+                <span class="n">Impute_Constant</span> <span class="o">=</span> <span class="n">constant_values</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
+                <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">DF</span><span class="p">[</span><span class="n">col</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="n">Impute_Constant</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">DF</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Tool.impute_district_property_age">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.impute_district_property_age">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">impute_district_property_age</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Impute missing district-level property age values for rows with all null targets.</span>
+<span class="sd">        Trains a multi-output regression model using predefined features, </span>
+<span class="sd">        then predicts/fills null targets.</span>
+
+<span class="sd">        Predefined columns:</span>
+<span class="sd">            - Features: [&#39;catsPerHousehold&#39;, &#39;dogsPerHousehold&#39;]</span>
+<span class="sd">            - Targets: [&#39;pre_1900&#39;, &#39;1900_1929&#39;, &#39;1930_1945&#39;, &#39;1945_1964&#39;, </span>
+<span class="sd">                       &#39;1965_1982&#39;, &#39;1983_1999&#39;, &#39;2000_present&#39;]</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : pandas.DataFrame</span>
+<span class="sd">            District DataFrame with required feature/target columns (outliers handled).</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pandas.DataFrame</span>
+<span class="sd">            District DataFrame with imputed values for rows missing all targets.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        ValueError</span>
+<span class="sd">            If input lacks required feature/target columns.</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; tool = Tool()</span>
+<span class="sd">        &gt;&gt;&gt; df_imputed = tool.impute_district_property_age(df)   # doctest: +SKIP</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Predefined columns for district property age imputation</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;catsPerHousehold&#39;</span><span class="p">,</span> <span class="s1">&#39;dogsPerHousehold&#39;</span><span class="p">]</span>
+        <span class="n">targets</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;pre_1900&#39;</span><span class="p">,</span> <span class="s1">&#39;1900_1929&#39;</span><span class="p">,</span> <span class="s1">&#39;1930_1945&#39;</span><span class="p">,</span> <span class="s1">&#39;1945_1964&#39;</span><span class="p">,</span> 
+                   <span class="s1">&#39;1965_1982&#39;</span><span class="p">,</span> <span class="s1">&#39;1983_1999&#39;</span><span class="p">,</span> <span class="s1">&#39;2000_present&#39;</span><span class="p">,</span> <span class="s1">&#39;unknown&#39;</span><span class="p">]</span>
+
+        <span class="c1"># Check for required columns</span>
+        <span class="n">missing_features</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">features</span> <span class="k">if</span> <span class="n">f</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="n">missing_targets</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">targets</span> <span class="k">if</span> <span class="n">t</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">missing_features</span> <span class="ow">or</span> <span class="n">missing_targets</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Missing required columns. Features: </span><span class="si">{</span><span class="n">missing_features</span><span class="si">}</span><span class="s2">; Targets: </span><span class="si">{</span><span class="n">missing_targets</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Split data: train (non-null targets), test (all null targets)</span>
+        <span class="n">df_train</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span> <span class="n">how</span><span class="o">=</span><span class="s1">&#39;all&#39;</span><span class="p">)</span>
+        <span class="n">df_test</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">targets</span><span class="p">]</span><span class="o">.</span><span class="n">isna</span><span class="p">()</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span>
+
+        <span class="k">if</span> <span class="n">df_test</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="c1"># Train model and predict</span>
+        <span class="n">model</span> <span class="o">=</span> <span class="n">MultiOutputRegressor</span><span class="p">(</span><span class="n">RandomForestRegressor</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">))</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">df_train</span><span class="p">[</span><span class="n">features</span><span class="p">],</span> <span class="n">df_train</span><span class="p">[</span><span class="n">targets</span><span class="p">])</span>
+        <span class="n">predictions</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df_test</span><span class="p">[</span><span class="n">features</span><span class="p">])</span>
+
+        <span class="c1"># Normalize and fill predictions</span>
+        <span class="n">df_test_pred</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">predictions</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">targets</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">df_test</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="n">df_test_pred</span> <span class="o">=</span> <span class="n">df_test_pred</span><span class="o">.</span><span class="n">div</span><span class="p">(</span><span class="n">df_test_pred</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>  <span class="c1"># Row-wise normalization</span>
+
+        <span class="n">df_imputed</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="n">df_imputed</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">df_test</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">targets</span><span class="p">]</span> <span class="o">=</span> <span class="n">df_test_pred</span>
+
+        <span class="k">return</span> <span class="n">df_imputed</span></div>
+
+
+<div class="viewcode-block" id="Tool.predict_flood_class_from_postcode">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.predict_flood_class_from_postcode">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_flood_class_from_postcode</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;all_minimum_risk&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate series predicting flood probability classification</span>
+<span class="sd">        for a collection of poscodes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;all_minimum_risk&quot;</span><span class="p">:</span>
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="n">AllMinimumRiskModel</span><span class="p">()</span>  <span class="c1"># No training required</span>
+            <span class="k">return</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">predict_from_postcodes</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+
+
+        <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;seven_class_tool&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;seven_class_tool&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Model &#39;seven_class_tool&#39; has not been trained. &quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;seven_class_tool&quot;</span><span class="p">]</span>
+
+            <span class="n">postcodes_idx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">postcodes</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;postcode&quot;</span><span class="p">)</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_postcodedb</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;postcode&quot;</span><span class="p">)</span>
+            <span class="n">X_raw</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">postcodes_idx</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">predict_from_features</span><span class="p">(</span>
+                <span class="n">X_raw</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">postcodes_idx</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;model </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2"> not implemented&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Tool.predict_flood_class_from_OSGB36_location">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.predict_flood_class_from_OSGB36_location">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_flood_class_from_OSGB36_location</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">eastings</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">northings</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;all_minimum_risk&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate series predicting flood probability classification</span>
+<span class="sd">        for a collection of locations given as eastings and northings</span>
+<span class="sd">        on the Ordnance Survey National Grid (OSGB36) datum.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_arrays</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">eastings</span><span class="p">,</span> <span class="n">northings</span><span class="p">],</span> <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;easting&quot;</span><span class="p">,</span> <span class="s2">&quot;northing&quot;</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;all_minimum_risk&quot;</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_arrays</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">eastings</span><span class="p">,</span> <span class="n">northings</span><span class="p">],</span> <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;easting&quot;</span><span class="p">,</span> <span class="s2">&quot;northing&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="n">AllMinimumRiskModel</span><span class="p">()</span>  <span class="c1"># No training required</span>
+            <span class="k">return</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">predict_from_locations</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;seven_class_tool&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;seven_class_tool&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Model &#39;seven_class_tool&#39; has not been trained.&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;seven_class_tool&quot;</span><span class="p">]</span>
+
+            <span class="c1"># Build raw DataFrame</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+                <span class="s2">&quot;easting&quot;</span><span class="p">:</span> <span class="n">eastings</span><span class="p">,</span>
+                <span class="s2">&quot;northing&quot;</span><span class="p">:</span> <span class="n">northings</span><span class="p">,</span>
+            <span class="p">})</span>
+
+            <span class="c1"># Convert OSGB36 to WGS84</span>
+            <span class="n">lat</span><span class="p">,</span> <span class="n">lon</span> <span class="o">=</span> <span class="n">get_gps_lat_long_from_easting_northing</span><span class="p">(</span>
+                <span class="n">df</span><span class="p">[</span><span class="s2">&quot;easting&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">df</span><span class="p">[</span><span class="s2">&quot;northing&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">dms</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lat</span>
+            <span class="n">df</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">lon</span>
+
+            <span class="n">preds</span> <span class="o">=</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">predict_from_features</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">preds</span>
+
+        <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;knn&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;knn_risk&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Model &#39;knn&#39; not trained. Call fit_to_data([&#39;knn&#39;]) first.&quot;</span><span class="p">)</span>
+            
+            <span class="n">X_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">eastings</span><span class="p">,</span> <span class="n">northings</span><span class="p">])</span>
+            
+            <span class="n">predictions_float</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;knn_risk&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_pred</span><span class="p">)</span>
+            
+            <span class="n">predictions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">round</span><span class="p">(</span><span class="n">predictions_float</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+            
+
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">idx</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;riskLabel&quot;</span><span class="p">)</span>
+            
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;model </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2"> not implemented&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Tool.predict_flood_class_from_WGS84_locations">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.predict_flood_class_from_WGS84_locations">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_flood_class_from_WGS84_locations</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">longitudes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">latitudes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;all_minimum_risk&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate series predicting flood probability classification</span>
+<span class="sd">        for a collection of WGS84 datum locations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;all_minimum_risk&quot;</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_arrays</span><span class="p">(</span>
+                <span class="p">[</span><span class="n">longitudes</span><span class="p">,</span> <span class="n">latitudes</span><span class="p">],</span> <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">,</span> <span class="s2">&quot;latitude&quot;</span><span class="p">]</span>
+            <span class="p">)</span>
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="n">AllMinimumRiskModel</span><span class="p">()</span>  <span class="c1"># No training required</span>
+            <span class="k">return</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">predict_from_locations</span><span class="p">(</span><span class="n">idx</span><span class="p">)</span>
+
+        <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;seven_class_tool&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;seven_class_tool&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Model &#39;seven_class_tool&#39; has not been trained.&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;seven_class_tool&quot;</span><span class="p">]</span>
+
+            <span class="c1"># Build raw DataFrame</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+                <span class="s2">&quot;longitude&quot;</span><span class="p">:</span> <span class="n">longitudes</span><span class="p">,</span>
+                <span class="s2">&quot;latitude&quot;</span><span class="p">:</span> <span class="n">latitudes</span><span class="p">,</span>
+            <span class="p">})</span>
+
+            <span class="n">preds</span> <span class="o">=</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">predict_from_features</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">preds</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;model </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2"> not implemented&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Tool.predict_median_house_price">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.predict_median_house_price">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_median_house_price</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;all_england_median&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate a Pandas Series containing predicted median house price for an</span>
+<span class="sd">        input sequence of postcodes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">postcode_df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_postcode_district_sector</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;all_england_median&quot;</span><span class="p">:</span>
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="n">AllEnglandMedianPriceModel</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">predict_from_postcodes</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+
+
+        <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;house_prices_xgb&quot;</span><span class="p">:</span>
+            <span class="c1"># Prepare the data needed for prediction</span>
+            <span class="n">_unit</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_prep</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">_sector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sector_prep</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+            <span class="c1"># Extract only relevant postcodes and sector data</span>
+            <span class="n">_unit</span> <span class="o">=</span> <span class="n">_unit</span><span class="p">[</span><span class="n">_unit</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+                <span class="n">postcode_df</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">])]</span>
+            <span class="n">_sector</span> <span class="o">=</span> <span class="n">_sector</span><span class="p">[</span><span class="n">_sector</span><span class="p">[</span><span class="s1">&#39;postcodeSector&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+                <span class="n">postcode_df</span><span class="p">[</span><span class="s1">&#39;postcodeSector&#39;</span><span class="p">])]</span>
+
+            <span class="c1"># Merge unit and sector data</span>
+            <span class="n">merge_sector</span> <span class="o">=</span> <span class="n">unit_sector_merge</span><span class="p">(</span><span class="n">_unit</span><span class="p">,</span> <span class="n">_sector</span><span class="p">)</span>
+
+            <span class="c1"># Apply processing pipeline and drop target column if any</span>
+            <span class="k">if</span> <span class="n">merge_sector</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">X</span> <span class="o">=</span> <span class="n">merge_sector</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;medianPrice&#39;</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">house_proc_pipe</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">merge_sector</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span>
+                    <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;medianPrice&#39;</span><span class="p">]))</span>
+
+            <span class="c1"># Trim to only the postcodes found in the datasets</span>
+            <span class="n">postcodes_nan</span> <span class="o">=</span> <span class="n">postcode_df</span><span class="p">[</span><span class="o">~</span><span class="n">postcode_df</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span>
+                <span class="n">merge_sector</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">])][</span><span class="s1">&#39;postcode&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="n">postcodes_pred</span> <span class="o">=</span> <span class="n">merge_sector</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="n">model</span><span class="p">]</span><span class="o">.</span><span class="n">predict_from_postcodes</span><span class="p">(</span>
+                <span class="n">postcodes</span><span class="p">,</span> <span class="n">postcodes_pred</span><span class="p">,</span> <span class="n">postcodes_nan</span><span class="p">,</span> <span class="n">X</span><span class="p">)</span>
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;model </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2"> not implemented&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Tool.predict_high_risk_near_watercourses">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.predict_high_risk_near_watercourses">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_high_risk_near_watercourses</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">watercourse_names</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">risk_above</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">4</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate a DataFrame of unit areas with flood risk above a threshold</span>
+<span class="sd">        that are near specified watercourses.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="c1"># Load the dataset</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">X</span>
+        
+        <span class="c1"># Select the aimed postcode</span>
+        <span class="k">if</span> <span class="n">postcodes</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">,</span> <span class="s1">&#39;riskLabel&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+        
+        <span class="c1"># Call the risk prediction function to obtain the flood risk level for each location</span>
+        <span class="n">easting</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;easting&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">northing</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s1">&#39;northing&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="n">risk_series</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_flood_class_from_OSGB36_location</span><span class="p">(</span><span class="n">easting</span><span class="p">,</span> <span class="n">northing</span><span class="p">)</span>
+
+        <span class="c1"># Merge risk labels into data sets</span>
+        <span class="n">risk_df</span> <span class="o">=</span> <span class="n">risk_series</span><span class="o">.</span><span class="n">reset_index</span><span class="p">()</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="p">{</span><span class="mi">0</span><span class="p">:</span> <span class="s1">&#39;riskLabel&#39;</span><span class="p">})</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">risk_df</span><span class="p">,</span> <span class="n">on</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;easting&#39;</span><span class="p">,</span> <span class="s1">&#39;northing&#39;</span><span class="p">],</span> <span class="n">how</span><span class="o">=</span><span class="s1">&#39;inner&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Screen for records that are high risk and close to designated waterways</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;riskLabel&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">risk_above</span><span class="p">]</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s1">&#39;nearestWatercourse&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">watercourse_names</span><span class="p">)]</span>
+
+        <span class="c1"># Organize result columns</span>
+        <span class="n">result_columns</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span> <span class="o">!=</span> <span class="s1">&#39;riskLabel&#39;</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="s1">&#39;riskLabel&#39;</span><span class="p">]</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">result_columns</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">df</span></div>
+
+
+<div class="viewcode-block" id="Tool.predict_local_authority">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.predict_local_authority">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_local_authority</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">eastings</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">northings</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+        <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;modal_local_authority&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate a Pandas Series predicting local authorities for a sequence</span>
+<span class="sd">        of OSGB36 locations.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_arrays</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">eastings</span><span class="p">,</span> <span class="n">northings</span><span class="p">],</span> <span class="n">names</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;easting&quot;</span><span class="p">,</span> <span class="s2">&quot;northing&quot;</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;modal_local_authority&quot;</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">MultiIndex</span><span class="o">.</span><span class="n">from_tuples</span><span class="p">(</span>
+                <span class="p">[(</span><span class="n">est</span><span class="p">,</span> <span class="n">nth</span><span class="p">)</span> <span class="k">for</span> <span class="n">est</span><span class="p">,</span> <span class="n">nth</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">eastings</span><span class="p">,</span> <span class="n">northings</span><span class="p">)]</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;modal_local_authority&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">predict_from_location</span><span class="p">(</span>
+                <span class="n">idx</span>
+            <span class="p">)</span>
+        
+        <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;knn&quot;</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;knn_authority&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Model &#39;knn&#39; not trained. Call fit_to_data([&#39;knn&#39;]) first.&quot;</span><span class="p">)</span>
+            
+            <span class="n">X_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">column_stack</span><span class="p">([</span><span class="n">eastings</span><span class="p">,</span> <span class="n">northings</span><span class="p">])</span>
+            <span class="n">predictions</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;knn_authority&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">X_pred</span><span class="p">)</span>
+            
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="n">predictions</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">idx</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;localAuthority&quot;</span><span class="p">)</span>
+            
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;model </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2"> not implemented&quot;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="Tool.predict_historic_flooding">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.predict_historic_flooding">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">predict_historic_flooding</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">model</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;all_false&quot;</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate series predicting whether a collection of postcodes</span>
+<span class="sd">        has experienced historic flooding.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="k">if</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;all_false&quot;</span><span class="p">:</span>
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="n">AllFalseModel</span><span class="p">()</span>  <span class="c1"># No training required</span>
+            <span class="k">return</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;random_classification&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;random_classification&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+        
+        
+        <span class="k">elif</span> <span class="n">model</span> <span class="o">==</span> <span class="s2">&quot;historic_rf&quot;</span><span class="p">:</span>
+            
+            <span class="k">if</span> <span class="s2">&quot;historic_rf&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;Model &#39;historic_rf&#39; has not been trained. &quot;</span>
+                    <span class="s2">&quot;Call tool.fit_to_data(models=&#39;historic_rf&#39;) first.&quot;</span>
+                <span class="p">)</span>
+            
+            <span class="kn">from</span><span class="w"> </span><span class="nn">.models.historic_flood_classifier</span><span class="w"> </span><span class="kn">import</span> <span class="n">FEATURE_COLS</span><span class="p">,</span> <span class="n">DECISION_THRESHOLD</span>
+
+            
+            <span class="n">postcodes_idx</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">postcodes</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;postcode&quot;</span><span class="p">)</span>
+            <span class="n">frame</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_prep</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;postcode&quot;</span><span class="p">)</span>
+
+            <span class="n">X</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">postcodes_idx</span><span class="p">)[</span><span class="n">FEATURE_COLS</span><span class="p">]</span>
+
+            <span class="n">model_instance</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">models</span><span class="p">[</span><span class="s2">&quot;historic_rf&quot;</span><span class="p">]</span>
+            <span class="n">y_proba</span> <span class="o">=</span> <span class="n">model_instance</span><span class="o">.</span><span class="n">predict_proba</span><span class="p">(</span><span class="n">X</span><span class="p">)[:,</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">y_pred</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_proba</span> <span class="o">&gt;=</span> <span class="n">DECISION_THRESHOLD</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+                <span class="n">y_pred</span><span class="p">,</span>
+                <span class="n">index</span><span class="o">=</span><span class="n">postcodes_idx</span><span class="p">,</span>
+                <span class="n">name</span><span class="o">=</span><span class="s2">&quot;historicallyFlooded_pred&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;model </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2"> not implemented&quot;</span><span class="p">)</span></div>
+
+        
+
+
+
+
+<div class="viewcode-block" id="Tool.estimate_total_value">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.estimate_total_value">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">estimate_total_value</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">postal_data</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a series of estimates of the total property values</span>
+<span class="sd">        of a sequence of postcode units or postcode sectors.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Load the datasets</span>
+        <span class="n">postcodes_labelled</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">unit_data</span>
+        <span class="n">sector_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sector_data</span>
+    
+        <span class="c1"># Build mapping relationship</span>
+        <span class="n">valid_prices</span> <span class="o">=</span> <span class="n">postcodes_labelled</span><span class="p">[</span>
+            <span class="n">postcodes_labelled</span><span class="p">[</span><span class="s1">&#39;medianPrice&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="n">price_map</span> <span class="o">=</span> <span class="n">valid_prices</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;postcode&#39;</span><span class="p">)[</span><span class="s1">&#39;medianPrice&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+        <span class="n">valid_sectors</span> <span class="o">=</span> <span class="n">sector_data</span><span class="p">[</span>
+            <span class="n">sector_data</span><span class="p">[</span><span class="s1">&#39;households&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">notna</span><span class="p">()</span>
+        <span class="p">]</span>
+        <span class="n">sector_households_map</span> <span class="o">=</span> <span class="n">valid_sectors</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;postcodeSector&#39;</span><span class="p">)[</span><span class="s1">&#39;households&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+        <span class="n">total_values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">postcode</span> <span class="ow">in</span> <span class="n">postal_data</span><span class="p">:</span>
+            <span class="c1"># Get the median house price of the current zip code</span>
+            <span class="n">median_price</span> <span class="o">=</span> <span class="n">price_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">postcode</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+            
+            <span class="c1"># Extract zip code partitions and match the number of households</span>
+            <span class="n">sector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_postcode_district_sector</span><span class="p">([</span><span class="n">postcode</span><span class="p">])</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;postcodeSector&#39;</span><span class="p">]</span>
+            <span class="n">households</span> <span class="o">=</span> <span class="n">sector_households_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sector</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            
+            <span class="c1"># Calculate total value</span>
+            <span class="n">total_value</span> <span class="o">=</span> <span class="n">median_price</span> <span class="o">*</span> <span class="n">households</span>
+            <span class="n">total_values</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">total_value</span><span class="p">)</span>
+        
+        <span class="c1"># Build result Series</span>
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">total_values</span><span class="p">,</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">postal_data</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;postcode&#39;</span><span class="p">),</span>
+            <span class="n">name</span><span class="o">=</span><span class="s1">&#39;total_property_value&#39;</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Tool.estimate_annual_human_flood_risk">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.estimate_annual_human_flood_risk">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">estimate_annual_human_flood_risk</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">risk_labels</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a series of estimates of the risk to human life for a</span>
+<span class="sd">        collection of postcodes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">risk_labels</span> <span class="o">=</span> <span class="n">risk_labels</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_flood_class_from_postcode</span><span class="p">(</span>
+            <span class="n">postcodes</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Make sure to align with the input postcode index</span>
+        <span class="n">risk_labels</span> <span class="o">=</span> <span class="n">risk_labels</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+
+        <span class="c1"># Load population data</span>
+        <span class="n">sector_data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sector_data</span>
+        
+        <span class="c1"># Build mapping relationship</span>
+        <span class="n">sector_headcount</span> <span class="o">=</span> <span class="n">sector_data</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s2">&quot;postcodeSector&quot;</span><span class="p">)[</span><span class="s2">&quot;headcount&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+        <span class="c1"># Define flood levels</span>
+        <span class="n">flood_probability_mapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="mi">7</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>   <span class="c1"># 5%+</span>
+            <span class="mi">6</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span>   <span class="c1"># 3%</span>
+            <span class="mi">5</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">,</span>   <span class="c1"># 2%</span>
+            <span class="mi">4</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>   <span class="c1"># 1%</span>
+            <span class="mi">3</span><span class="p">:</span> <span class="mf">0.005</span><span class="p">,</span>  <span class="c1"># 0.5%</span>
+            <span class="mi">2</span><span class="p">:</span> <span class="mf">0.002</span><span class="p">,</span>  <span class="c1"># 0.2%</span>
+            <span class="mi">1</span><span class="p">:</span> <span class="mf">0.001</span>   <span class="c1"># 0.1% or less</span>
+        <span class="p">}</span>
+
+        <span class="n">annual_risks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">postcode</span> <span class="ow">in</span> <span class="n">postcodes</span><span class="p">:</span>
+            <span class="c1"># Extract zip code partition (such as BA10 0AD → BA10 0)</span>
+            <span class="n">sector</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_postcode_district_sector</span><span class="p">([</span><span class="n">postcode</span><span class="p">])</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s1">&#39;postcodeSector&#39;</span><span class="p">]</span>
+            
+            <span class="c1"># Get the total population</span>
+            <span class="n">headcount</span> <span class="o">=</span> <span class="n">sector_headcount</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">sector</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            
+            <span class="c1"># Get the flood probability corresponding to the risk level</span>
+            <span class="n">risk_level</span> <span class="o">=</span> <span class="n">risk_labels</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">postcode</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">flood_prob</span> <span class="o">=</span> <span class="n">flood_probability_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">risk_level</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            
+            <span class="c1"># Calculate annual risk</span>
+            <span class="n">annual_risk</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">*</span> <span class="n">headcount</span> <span class="o">*</span> <span class="n">flood_prob</span>
+            <span class="n">annual_risks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">annual_risk</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">annual_risks</span><span class="p">,</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">postcodes</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;postcode&quot;</span><span class="p">),</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;annual_human_flood_risk&quot;</span>
+        <span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="Tool.estimate_annual_economic_flood_risk">
+<a class="viewcode-back" href="../../index.html#flood_tool.tool.Tool.estimate_annual_economic_flood_risk">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">estimate_annual_economic_flood_risk</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">postcodes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">risk_labels</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Return a series of estimates of the total economic property risk</span>
+<span class="sd">        for a collection of postcodes.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+        <span class="n">risk_labels</span> <span class="o">=</span> <span class="n">risk_labels</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">predict_flood_class_from_postcode</span><span class="p">(</span>
+            <span class="n">postcodes</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Make sure to align with the input postcode index</span>
+        <span class="n">risk_labels</span> <span class="o">=</span> <span class="n">risk_labels</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+        
+        <span class="c1"># Get total property value</span>
+        <span class="n">total_value_series</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">estimate_total_value</span><span class="p">(</span><span class="n">postcodes</span><span class="p">)</span>
+
+        <span class="c1"># Define flood levels</span>
+        <span class="n">flood_probability_mapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="mi">7</span><span class="p">:</span> <span class="mf">0.05</span><span class="p">,</span>   <span class="c1"># 5%+</span>
+            <span class="mi">6</span><span class="p">:</span> <span class="mf">0.03</span><span class="p">,</span>   <span class="c1"># 3%</span>
+            <span class="mi">5</span><span class="p">:</span> <span class="mf">0.02</span><span class="p">,</span>   <span class="c1"># 2%</span>
+            <span class="mi">4</span><span class="p">:</span> <span class="mf">0.01</span><span class="p">,</span>   <span class="c1"># 1%</span>
+            <span class="mi">3</span><span class="p">:</span> <span class="mf">0.005</span><span class="p">,</span>  <span class="c1"># 0.5%</span>
+            <span class="mi">2</span><span class="p">:</span> <span class="mf">0.002</span><span class="p">,</span>  <span class="c1"># 0.2%</span>
+            <span class="mi">1</span><span class="p">:</span> <span class="mf">0.001</span>   <span class="c1"># 0.1% or less</span>
+        <span class="p">}</span>
+
+        <span class="n">annual_economic_risks</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">postcode</span> <span class="ow">in</span> <span class="n">postcodes</span><span class="p">:</span>
+            <span class="c1"># Get total property value</span>
+            <span class="n">total_value</span> <span class="o">=</span> <span class="n">total_value_series</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">postcode</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+            
+            <span class="c1"># Get the flood probability corresponding to the risk level</span>
+            <span class="n">risk_level</span> <span class="o">=</span> <span class="n">risk_labels</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">postcode</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            <span class="n">flood_prob</span> <span class="o">=</span> <span class="n">flood_probability_mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">risk_level</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+            
+            <span class="c1"># Calculate financial risk</span>
+            <span class="n">economic_risk</span> <span class="o">=</span> <span class="mf">0.05</span> <span class="o">*</span> <span class="n">total_value</span> <span class="o">*</span> <span class="n">flood_prob</span>
+            <span class="n">annual_economic_risks</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">economic_risk</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span>
+            <span class="n">data</span><span class="o">=</span><span class="n">annual_economic_risks</span><span class="p">,</span>
+            <span class="n">index</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">Index</span><span class="p">(</span><span class="n">postcodes</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;postcode&quot;</span><span class="p">),</span>
+            <span class="n">name</span><span class="o">=</span><span class="s2">&quot;annual_economic_flood_risk&quot;</span>
+        <span class="p">)</span></div>
+</div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../index.html">Flood Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../models.html">Regression and Classification models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../coordinates.html">Distance Measuring &amp; Geodetic Transformations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../visualization.html">Visualising HistoricFlooding &amp; FloodRisk with Local Authority</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../index.html">Documentation overview</a><ul>
+  <li><a href="../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, n/a.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

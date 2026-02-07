@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sklearn.preprocessing._function_transformer &#8212; Flood Tool 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=12dfc556" />
+    <script src="../../../_static/documentation_options.js?v=cb975c41"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for sklearn.preprocessing._function_transformer</h1><div class="highlight"><pre>
+<span></span><span class="c1"># Authors: The scikit-learn developers</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..base</span><span class="w"> </span><span class="kn">import</span> <span class="n">BaseEstimator</span><span class="p">,</span> <span class="n">TransformerMixin</span><span class="p">,</span> <span class="n">_fit_context</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils._param_validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">StrOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils._repr_html.estimator</span><span class="w"> </span><span class="kn">import</span> <span class="n">_VisualBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils._set_output</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_get_adapter_from_container</span><span class="p">,</span>
+    <span class="n">_get_output_config</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.metaestimators</span><span class="w"> </span><span class="kn">import</span> <span class="n">available_if</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_allclose_dense_sparse</span><span class="p">,</span>
+    <span class="n">_check_feature_names</span><span class="p">,</span>
+    <span class="n">_check_feature_names_in</span><span class="p">,</span>
+    <span class="n">_check_n_features</span><span class="p">,</span>
+    <span class="n">_get_feature_names</span><span class="p">,</span>
+    <span class="n">_is_pandas_df</span><span class="p">,</span>
+    <span class="n">_is_polars_df</span><span class="p">,</span>
+    <span class="n">check_array</span><span class="p">,</span>
+    <span class="n">validate_data</span><span class="p">,</span>
+<span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_identity</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;The identity function.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">X</span>
+
+
+<div class="viewcode-block" id="FunctionTransformer">
+<a class="viewcode-back" href="../../../index.html#flood_tool.FunctionTransformer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FunctionTransformer</span><span class="p">(</span><span class="n">TransformerMixin</span><span class="p">,</span> <span class="n">BaseEstimator</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Constructs a transformer from an arbitrary callable.</span>
+
+<span class="sd">    A FunctionTransformer forwards its X (and optionally y) arguments to a</span>
+<span class="sd">    user-defined function or function object and returns the result of this</span>
+<span class="sd">    function. This is useful for stateless transformations such as taking the</span>
+<span class="sd">    log of frequencies, doing custom scaling, etc.</span>
+
+<span class="sd">    Note: If a lambda is used as the function, then the resulting</span>
+<span class="sd">    transformer will not be pickleable.</span>
+
+<span class="sd">    .. versionadded:: 0.17</span>
+
+<span class="sd">    Read more in the :ref:`User Guide &lt;function_transformer&gt;`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    func : callable, default=None</span>
+<span class="sd">        The callable to use for the transformation. This will be passed</span>
+<span class="sd">        the same arguments as transform, with args and kwargs forwarded.</span>
+<span class="sd">        If func is None, then func will be the identity function.</span>
+
+<span class="sd">    inverse_func : callable, default=None</span>
+<span class="sd">        The callable to use for the inverse transformation. This will be</span>
+<span class="sd">        passed the same arguments as inverse transform, with args and</span>
+<span class="sd">        kwargs forwarded. If inverse_func is None, then inverse_func</span>
+<span class="sd">        will be the identity function.</span>
+
+<span class="sd">    validate : bool, default=False</span>
+<span class="sd">        Indicate that the input X array should be checked before calling</span>
+<span class="sd">        ``func``. The possibilities are:</span>
+
+<span class="sd">        - If False, there is no input validation.</span>
+<span class="sd">        - If True, then X will be converted to a 2-dimensional NumPy array or</span>
+<span class="sd">          sparse matrix. If the conversion is not possible an exception is</span>
+<span class="sd">          raised.</span>
+
+<span class="sd">        .. versionchanged:: 0.22</span>
+<span class="sd">           The default of ``validate`` changed from True to False.</span>
+
+<span class="sd">    accept_sparse : bool, default=False</span>
+<span class="sd">        Indicate that func accepts a sparse matrix as input. If validate is</span>
+<span class="sd">        False, this has no effect. Otherwise, if accept_sparse is false,</span>
+<span class="sd">        sparse matrix inputs will cause an exception to be raised.</span>
+
+<span class="sd">    check_inverse : bool, default=True</span>
+<span class="sd">       Whether to check that or ``func`` followed by ``inverse_func`` leads to</span>
+<span class="sd">       the original inputs. It can be used for a sanity check, raising a</span>
+<span class="sd">       warning when the condition is not fulfilled.</span>
+
+<span class="sd">       .. versionadded:: 0.20</span>
+
+<span class="sd">    feature_names_out : callable, &#39;one-to-one&#39; or None, default=None</span>
+<span class="sd">        Determines the list of feature names that will be returned by the</span>
+<span class="sd">        `get_feature_names_out` method. If it is &#39;one-to-one&#39;, then the output</span>
+<span class="sd">        feature names will be equal to the input feature names. If it is a</span>
+<span class="sd">        callable, then it must take two positional arguments: this</span>
+<span class="sd">        `FunctionTransformer` (`self`) and an array-like of input feature names</span>
+<span class="sd">        (`input_features`). It must return an array-like of output feature</span>
+<span class="sd">        names. The `get_feature_names_out` method is only defined if</span>
+<span class="sd">        `feature_names_out` is not None.</span>
+
+<span class="sd">        See ``get_feature_names_out`` for more details.</span>
+
+<span class="sd">        .. versionadded:: 1.1</span>
+
+<span class="sd">    kw_args : dict, default=None</span>
+<span class="sd">        Dictionary of additional keyword arguments to pass to func.</span>
+
+<span class="sd">        .. versionadded:: 0.18</span>
+
+<span class="sd">    inv_kw_args : dict, default=None</span>
+<span class="sd">        Dictionary of additional keyword arguments to pass to inverse_func.</span>
+
+<span class="sd">        .. versionadded:: 0.18</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    n_features_in_ : int</span>
+<span class="sd">        Number of features seen during :term:`fit`.</span>
+
+<span class="sd">        .. versionadded:: 0.24</span>
+
+<span class="sd">    feature_names_in_ : ndarray of shape (`n_features_in_`,)</span>
+<span class="sd">        Names of features seen during :term:`fit`. Defined only when `X` has feature</span>
+<span class="sd">        names that are all strings.</span>
+
+<span class="sd">        .. versionadded:: 1.0</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    MaxAbsScaler : Scale each feature by its maximum absolute value.</span>
+<span class="sd">    StandardScaler : Standardize features by removing the mean and</span>
+<span class="sd">        scaling to unit variance.</span>
+<span class="sd">    LabelBinarizer : Binarize labels in a one-vs-all fashion.</span>
+<span class="sd">    MultiLabelBinarizer : Transform between iterable of iterables</span>
+<span class="sd">        and a multilabel format.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    If `func` returns an output with a `columns` attribute, then the columns is enforced</span>
+<span class="sd">    to be consistent with the output of `get_feature_names_out`.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn.preprocessing import FunctionTransformer</span>
+<span class="sd">    &gt;&gt;&gt; transformer = FunctionTransformer(np.log1p)</span>
+<span class="sd">    &gt;&gt;&gt; X = np.array([[0, 1], [2, 3]])</span>
+<span class="sd">    &gt;&gt;&gt; transformer.transform(X)</span>
+<span class="sd">    array([[0.       , 0.6931],</span>
+<span class="sd">           [1.0986, 1.3862]])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_parameter_constraints</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;func&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">callable</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="s2">&quot;inverse_func&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">callable</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="s2">&quot;validate&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;boolean&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;accept_sparse&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;boolean&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;check_inverse&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;boolean&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;feature_names_out&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">callable</span><span class="p">,</span> <span class="n">StrOptions</span><span class="p">({</span><span class="s2">&quot;one-to-one&quot;</span><span class="p">}),</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="s2">&quot;kw_args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="s2">&quot;inv_kw_args&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">inverse_func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">validate</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">accept_sparse</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">check_inverse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">feature_names_out</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">kw_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">inv_kw_args</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="o">=</span> <span class="n">func</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inverse_func</span> <span class="o">=</span> <span class="n">inverse_func</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">validate</span> <span class="o">=</span> <span class="n">validate</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">accept_sparse</span> <span class="o">=</span> <span class="n">accept_sparse</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">check_inverse</span> <span class="o">=</span> <span class="n">check_inverse</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">feature_names_out</span> <span class="o">=</span> <span class="n">feature_names_out</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">kw_args</span> <span class="o">=</span> <span class="n">kw_args</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inv_kw_args</span> <span class="o">=</span> <span class="n">inv_kw_args</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_input</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">reset</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">validate_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">accept_sparse</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">accept_sparse</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="n">reset</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">reset</span><span class="p">:</span>
+            <span class="c1"># Set feature_names_in_ and n_features_in_ even if validate=False</span>
+            <span class="c1"># We run this only when reset==True to store the attributes but not</span>
+            <span class="c1"># validate them, because validate=False</span>
+            <span class="n">_check_n_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="n">reset</span><span class="p">)</span>
+            <span class="n">_check_feature_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="n">reset</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">X</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_inverse_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check that func and inverse_func are the inverse.&quot;&quot;&quot;</span>
+        <span class="n">idx_selected</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">100</span><span class="p">))</span>
+        <span class="n">X_round_trip</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">inverse_transform</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">idx_selected</span><span class="p">]))</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">&quot;dtype&quot;</span><span class="p">):</span>
+            <span class="n">dtypes</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span><span class="o">.</span><span class="n">dtype</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">&quot;dtypes&quot;</span><span class="p">):</span>
+            <span class="c1"># Dataframes can have multiple dtypes</span>
+            <span class="n">dtypes</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">dtypes</span>
+
+        <span class="c1"># Not all dtypes are numpy dtypes, they can be pandas dtypes as well</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+            <span class="nb">isinstance</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">d</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">number</span><span class="p">)</span> <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">dtypes</span>
+        <span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;&#39;check_inverse&#39; is only supported when all the elements in `X` is&quot;</span>
+                <span class="s2">&quot; numerical.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">_allclose_dense_sparse</span><span class="p">(</span><span class="n">X</span><span class="p">[</span><span class="n">idx_selected</span><span class="p">],</span> <span class="n">X_round_trip</span><span class="p">):</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="p">(</span>
+                    <span class="s2">&quot;The provided functions are not strictly&quot;</span>
+                    <span class="s2">&quot; inverse of each other. If you are sure you&quot;</span>
+                    <span class="s2">&quot; want to proceed regardless, set&quot;</span>
+                    <span class="s2">&quot; &#39;check_inverse=False&#39;.&quot;</span>
+                <span class="p">),</span>
+                <span class="ne">UserWarning</span><span class="p">,</span>
+            <span class="p">)</span>
+
+<div class="viewcode-block" id="FunctionTransformer.fit">
+<a class="viewcode-back" href="../../../index.html#flood_tool.FunctionTransformer.fit">[docs]</a>
+    <span class="nd">@_fit_context</span><span class="p">(</span><span class="n">prefer_skip_nested_validation</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fit transformer by checking X.</span>
+
+<span class="sd">        If ``validate`` is ``True``, ``X`` will be checked.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : {array-like, sparse-matrix} of shape (n_samples, n_features) \</span>
+<span class="sd">                if `validate=True` else any object that `func` can handle</span>
+<span class="sd">            Input array.</span>
+
+<span class="sd">        y : Ignored</span>
+<span class="sd">            Not used, present here for API consistency by convention.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        self : object</span>
+<span class="sd">            FunctionTransformer class instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_input</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">check_inverse</span> <span class="ow">and</span> <span class="ow">not</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">inverse_func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_check_inverse_transform</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="FunctionTransformer.transform">
+<a class="viewcode-back" href="../../../index.html#flood_tool.FunctionTransformer.transform">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform X using the forward function.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : {array-like, sparse-matrix} of shape (n_samples, n_features) \</span>
+<span class="sd">                if `validate=True` else any object that `func` can handle</span>
+<span class="sd">            Input array.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        X_out : array-like, shape (n_samples, n_features)</span>
+<span class="sd">            Transformed input.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_input</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">kw_args</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">kw_args</span><span class="p">)</span>
+        <span class="n">output_config</span> <span class="o">=</span> <span class="n">_get_output_config</span><span class="p">(</span><span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)[</span><span class="s2">&quot;dense&quot;</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">out</span><span class="p">,</span> <span class="s2">&quot;columns&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># check the consistency between the column provided by `transform` and</span>
+            <span class="c1"># the column names provided by `get_feature_names_out`.</span>
+            <span class="n">feature_names_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_feature_names_out</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">list</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">list</span><span class="p">(</span><span class="n">feature_names_out</span><span class="p">):</span>
+                <span class="c1"># we can override the column names of the output if it is inconsistent</span>
+                <span class="c1"># with the column names provided by `get_feature_names_out` in the</span>
+                <span class="c1"># following cases:</span>
+                <span class="c1"># * `func` preserved the column names between the input and the output</span>
+                <span class="c1"># * the input column names are all numbers</span>
+                <span class="c1"># * the output is requested to be a DataFrame (pandas or polars)</span>
+                <span class="n">feature_names_in</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span>
+                    <span class="n">X</span><span class="p">,</span> <span class="s2">&quot;feature_names_in_&quot;</span><span class="p">,</span> <span class="n">_get_feature_names</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+                <span class="p">)</span>
+                <span class="n">same_feature_names_in_out</span> <span class="o">=</span> <span class="n">feature_names_in</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">list</span><span class="p">(</span>
+                    <span class="n">feature_names_in</span>
+                <span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
+                <span class="n">not_all_str_columns</span> <span class="o">=</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span>
+                    <span class="nb">isinstance</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">out</span><span class="o">.</span><span class="n">columns</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">same_feature_names_in_out</span> <span class="ow">or</span> <span class="n">not_all_str_columns</span><span class="p">:</span>
+                    <span class="n">adapter</span> <span class="o">=</span> <span class="n">_get_adapter_from_container</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+                    <span class="n">out</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">create_container</span><span class="p">(</span>
+                        <span class="n">X_output</span><span class="o">=</span><span class="n">out</span><span class="p">,</span>
+                        <span class="n">X_original</span><span class="o">=</span><span class="n">out</span><span class="p">,</span>
+                        <span class="n">columns</span><span class="o">=</span><span class="n">feature_names_out</span><span class="p">,</span>
+                        <span class="n">inplace</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;The output generated by `func` have different column names &quot;</span>
+                        <span class="s2">&quot;than the ones provided by `get_feature_names_out`. &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;Got output with columns names: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">out</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="si">}</span><span class="s2"> and &quot;</span>
+                        <span class="s2">&quot;`get_feature_names_out` returned: &quot;</span>
+                        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">get_feature_names_out</span><span class="p">())</span><span class="si">}</span><span class="s2">. &quot;</span>
+                        <span class="s2">&quot;The column names can be overridden by setting &quot;</span>
+                        <span class="s2">&quot;`set_output(transform=&#39;pandas&#39;)` or &quot;</span>
+                        <span class="s2">&quot;`set_output(transform=&#39;polars&#39;)` such that the column names &quot;</span>
+                        <span class="s2">&quot;are set to the names provided by `get_feature_names_out`.&quot;</span>
+                    <span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names_out</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">warn_msg</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="s2">&quot;When `set_output` is configured to be &#39;</span><span class="si">{0}</span><span class="s2">&#39;, `func` should return &quot;</span>
+                <span class="s2">&quot;a </span><span class="si">{0}</span><span class="s2"> DataFrame to follow the `set_output` API  or `feature_names_out`&quot;</span>
+                <span class="s2">&quot; should be defined.&quot;</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">output_config</span> <span class="o">==</span> <span class="s2">&quot;pandas&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_is_pandas_df</span><span class="p">(</span><span class="n">out</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">warn_msg</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;pandas&quot;</span><span class="p">))</span>
+            <span class="k">elif</span> <span class="n">output_config</span> <span class="o">==</span> <span class="s2">&quot;polars&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">_is_polars_df</span><span class="p">(</span><span class="n">out</span><span class="p">):</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span><span class="n">warn_msg</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="s2">&quot;polars&quot;</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">out</span></div>
+
+
+<div class="viewcode-block" id="FunctionTransformer.inverse_transform">
+<a class="viewcode-back" href="../../../index.html#flood_tool.FunctionTransformer.inverse_transform">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">inverse_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform X using the inverse function.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : {array-like, sparse-matrix} of shape (n_samples, n_features) \</span>
+<span class="sd">                if `validate=True` else any object that `inverse_func` can handle</span>
+<span class="sd">            Input array.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        X_original : array-like, shape (n_samples, n_features)</span>
+<span class="sd">            Transformed input.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span><span class="p">:</span>
+            <span class="n">X</span> <span class="o">=</span> <span class="n">check_array</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">accept_sparse</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">accept_sparse</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transform</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inverse_func</span><span class="p">,</span> <span class="n">kw_args</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">inv_kw_args</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="FunctionTransformer.get_feature_names_out">
+<a class="viewcode-back" href="../../../index.html#flood_tool.FunctionTransformer.get_feature_names_out">[docs]</a>
+    <span class="nd">@available_if</span><span class="p">(</span><span class="k">lambda</span> <span class="bp">self</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names_out</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_feature_names_out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_features</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get output feature names for transformation.</span>
+
+<span class="sd">        This method is only defined if `feature_names_out` is not None.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_features : array-like of str or None, default=None</span>
+<span class="sd">            Input feature names.</span>
+
+<span class="sd">            - If `input_features` is None, then `feature_names_in_` is</span>
+<span class="sd">              used as the input feature names. If `feature_names_in_` is not</span>
+<span class="sd">              defined, then names are generated:</span>
+<span class="sd">              `[x0, x1, ..., x(n_features_in_ - 1)]`.</span>
+<span class="sd">            - If `input_features` is array-like, then `input_features` must</span>
+<span class="sd">              match `feature_names_in_` if `feature_names_in_` is defined.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        feature_names_out : ndarray of str objects</span>
+<span class="sd">            Transformed feature names.</span>
+
+<span class="sd">            - If `feature_names_out` is &#39;one-to-one&#39;, the input feature names</span>
+<span class="sd">              are returned (see `input_features` above). This requires</span>
+<span class="sd">              `feature_names_in_` and/or `n_features_in_` to be defined, which</span>
+<span class="sd">              is done automatically if `validate=True`. Alternatively, you can</span>
+<span class="sd">              set them in `func`.</span>
+<span class="sd">            - If `feature_names_out` is a callable, then it is called with two</span>
+<span class="sd">              arguments, `self` and `input_features`, and its return value is</span>
+<span class="sd">              returned by this method.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;n_features_in_&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">input_features</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">input_features</span> <span class="o">=</span> <span class="n">_check_feature_names_in</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_features</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names_out</span> <span class="o">==</span> <span class="s2">&quot;one-to-one&quot;</span><span class="p">:</span>
+            <span class="n">names_out</span> <span class="o">=</span> <span class="n">input_features</span>
+        <span class="k">elif</span> <span class="nb">callable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_names_out</span><span class="p">):</span>
+            <span class="n">names_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names_out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_features</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;feature_names_out=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_names_out</span><span class="si">!r}</span><span class="s2"> is invalid. &quot;</span>
+                <span class="s1">&#39;It must either be &quot;one-to-one&quot; or a callable with two &#39;</span>
+                <span class="s2">&quot;arguments: the function transformer and an array-like of &quot;</span>
+                <span class="s2">&quot;input feature names. The callable must return an array-like &quot;</span>
+                <span class="s2">&quot;of output feature names.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">names_out</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">func</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">kw_args</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">func</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">func</span> <span class="o">=</span> <span class="n">_identity</span>
+
+        <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="o">**</span><span class="p">(</span><span class="n">kw_args</span> <span class="k">if</span> <span class="n">kw_args</span> <span class="k">else</span> <span class="p">{}))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__sklearn_is_fitted__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return True since FunctionTransfomer is stateless.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="kc">True</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__sklearn_tags__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">tags</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__sklearn_tags__</span><span class="p">()</span>
+        <span class="n">tags</span><span class="o">.</span><span class="n">no_validation</span> <span class="o">=</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span>
+        <span class="n">tags</span><span class="o">.</span><span class="n">requires_fit</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="n">tags</span><span class="o">.</span><span class="n">input_tags</span><span class="o">.</span><span class="n">sparse</span> <span class="o">=</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">validate</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">accept_sparse</span>
+        <span class="k">return</span> <span class="n">tags</span>
+
+<div class="viewcode-block" id="FunctionTransformer.set_output">
+<a class="viewcode-back" href="../../../index.html#flood_tool.FunctionTransformer.set_output">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set output container.</span>
+
+<span class="sd">        See :ref:`sphx_glr_auto_examples_miscellaneous_plot_set_output.py`</span>
+<span class="sd">        for an example on how to use the API.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        transform : {&quot;default&quot;, &quot;pandas&quot;, &quot;polars&quot;}, default=None</span>
+<span class="sd">            Configure output of `transform` and `fit_transform`.</span>
+
+<span class="sd">            - `&quot;default&quot;`: Default output format of a transformer</span>
+<span class="sd">            - `&quot;pandas&quot;`: DataFrame output</span>
+<span class="sd">            - `&quot;polars&quot;`: Polars output</span>
+<span class="sd">            - `None`: Transform configuration is unchanged</span>
+
+<span class="sd">            .. versionadded:: 1.4</span>
+<span class="sd">                `&quot;polars&quot;` option was added.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        self : estimator instance</span>
+<span class="sd">            Estimator instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_sklearn_output_config&quot;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_sklearn_output_config</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_sklearn_output_config</span><span class="p">[</span><span class="s2">&quot;transform&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">transform</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_function_name</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the name display of the `func` used in HTML representation.&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="s2">&quot;__name__&quot;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="p">,</span> <span class="n">partial</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">func</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(...)&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sk_visual_block_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_VisualBlock</span><span class="p">(</span>
+            <span class="s2">&quot;single&quot;</span><span class="p">,</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">names</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_function_name</span><span class="p">(),</span>
+            <span class="n">name_details</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="p">),</span>
+            <span class="n">name_caption</span><span class="o">=</span><span class="s2">&quot;FunctionTransformer&quot;</span><span class="p">,</span>
+            <span class="n">doc_link_label</span><span class="o">=</span><span class="s2">&quot;FunctionTransformer&quot;</span><span class="p">,</span>
+        <span class="p">)</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Flood Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">Regression and Classification models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../coordinates.html">Distance Measuring &amp; Geodetic Transformations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../visualization.html">Visualising HistoricFlooding &amp; FloodRisk with Local Authority</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, n/a.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

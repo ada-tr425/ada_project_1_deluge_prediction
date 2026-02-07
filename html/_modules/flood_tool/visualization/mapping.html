@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>flood_tool.visualization.mapping &#8212; Flood Tool 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=12dfc556" />
+    <script src="../../../_static/documentation_options.js?v=cb975c41"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for flood_tool.visualization.mapping</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Mapping utilities for visualising flood models.</span>
+
+<span class="sd">This module is only about *visualisation*:</span>
+
+<span class="sd">- It does NOT train any models.</span>
+<span class="sd">- It expects you to pass in data (for example, a DataFrame with</span>
+<span class="sd">  latitude/longitude and model predictions).</span>
+<span class="sd">- Functions here are usually called from `analysis.py` or from</span>
+<span class="sd">  Jupyter notebooks.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">__future__</span><span class="w"> </span><span class="kn">import</span> <span class="n">annotations</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">itertools</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">folium</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">geopandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">gpd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">branca.colormap</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">cm</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">folium.plugins</span><span class="w"> </span><span class="kn">import</span> <span class="n">Fullscreen</span><span class="p">,</span> <span class="n">MiniMap</span><span class="p">,</span> <span class="n">MeasureControl</span><span class="p">,</span> <span class="n">MousePosition</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..models.historic_flood_classifier</span><span class="w"> </span><span class="kn">import</span> <span class="n">predict_postcode</span>
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># General colour palette for Folium markers</span>
+<span class="n">FOLIUM_COLORS</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="s2">&quot;green&quot;</span><span class="p">,</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="s2">&quot;orange&quot;</span><span class="p">,</span> <span class="s2">&quot;darkred&quot;</span><span class="p">,</span> <span class="s2">&quot;lightred&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;beige&quot;</span><span class="p">,</span> <span class="s2">&quot;darkblue&quot;</span><span class="p">,</span> <span class="s2">&quot;darkgreen&quot;</span><span class="p">,</span> <span class="s2">&quot;cadetblue&quot;</span><span class="p">,</span> <span class="s2">&quot;darkpurple&quot;</span><span class="p">,</span> <span class="s2">&quot;white&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;pink&quot;</span><span class="p">,</span> <span class="s2">&quot;lightblue&quot;</span><span class="p">,</span> <span class="s2">&quot;lightgreen&quot;</span><span class="p">,</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="s2">&quot;lightgray&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;make_base_map&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;make_interactive_base_map&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;_make_colour_lookup&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;plot_historic_flood_for_postcode&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;plot_flood_by_area&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;plot_local_authority_map&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;plot_local_authority_real_shapes&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;plot_color_size_map&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;filtered_plot&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;plot_latest_rainfall_and_level&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;latest_weather_data&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;plot_combined_flood_and_rain_map&quot;</span><span class="p">,</span>
+<span class="p">]</span>
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># General mapping helpers</span>
+
+<div class="viewcode-block" id="make_base_map">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.make_base_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_base_map</span><span class="p">(</span>
+    <span class="n">centre_lat</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">centre_lon</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">zoom_start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">12</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a simple Folium map centred on a single point.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    centre_lat : float</span>
+<span class="sd">        Centre latitude.</span>
+<span class="sd">    centre_lon : float</span>
+<span class="sd">        Centre longitude.</span>
+<span class="sd">    zoom_start : int, default 12</span>
+<span class="sd">        Initial zoom level.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    folium.Map</span>
+<span class="sd">        A basic Folium map with a scale bar.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span>
+        <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">centre_lat</span><span class="p">,</span> <span class="n">centre_lon</span><span class="p">],</span>
+        <span class="n">zoom_start</span><span class="o">=</span><span class="n">zoom_start</span><span class="p">,</span>
+        <span class="n">control_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span></div>
+
+
+<span class="c1"># -------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="make_interactive_base_map">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.make_interactive_base_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_interactive_base_map</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">lat_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;latitude&quot;</span><span class="p">,</span>
+    <span class="n">lon_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;longitude&quot;</span><span class="p">,</span>
+    <span class="n">zoom_start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="n">width</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;55%&quot;</span><span class="p">,</span>
+    <span class="n">height</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;380px&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create an interactive base map centred on the mean location of a DataFrame.</span>
+
+<span class="sd">    The map includes:</span>
+<span class="sd">    - Fullscreen toggle</span>
+<span class="sd">    - Mini overview map</span>
+<span class="sd">    - Distance measurement tool</span>
+<span class="sd">    - Live mouse coordinates</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Data with latitude and longitude columns.</span>
+<span class="sd">    lat_col, lon_col : str, default &quot;latitude&quot;, &quot;longitude&quot;</span>
+<span class="sd">        Column names for coordinates.</span>
+<span class="sd">    zoom_start : int, default 8</span>
+<span class="sd">        Initial zoom level.</span>
+<span class="sd">    width, height : str</span>
+<span class="sd">        Map size as strings understood by Folium (e.g. &quot;55%&quot;, &quot;380px&quot;).</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    folium.Map</span>
+<span class="sd">        Interactive base map ready to add layers.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span>
+        <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">lat_col</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">df</span><span class="p">[</span><span class="n">lon_col</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()],</span>
+        <span class="n">zoom_start</span><span class="o">=</span><span class="n">zoom_start</span><span class="p">,</span>
+        <span class="n">width</span><span class="o">=</span><span class="n">width</span><span class="p">,</span>
+        <span class="n">height</span><span class="o">=</span><span class="n">height</span><span class="p">,</span>
+        <span class="n">control_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">Fullscreen</span><span class="p">(</span><span class="n">position</span><span class="o">=</span><span class="s2">&quot;topleft&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">MiniMap</span><span class="p">(</span><span class="n">toggle_display</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="s2">&quot;bottomleft&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">MeasureControl</span><span class="p">(</span><span class="n">position</span><span class="o">=</span><span class="s2">&quot;topleft&quot;</span><span class="p">,</span> <span class="n">primary_length_unit</span><span class="o">=</span><span class="s2">&quot;meters&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">MousePosition</span><span class="p">(</span>
+        <span class="n">position</span><span class="o">=</span><span class="s2">&quot;bottomleft&quot;</span><span class="p">,</span>
+        <span class="n">separator</span><span class="o">=</span><span class="s2">&quot; | &quot;</span><span class="p">,</span>
+        <span class="n">num_digits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;Lat/Lon:&quot;</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">m</span></div>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_make_colour_lookup</span><span class="p">(</span><span class="n">labels</span><span class="p">,</span> <span class="n">colours</span><span class="o">=</span><span class="n">FOLIUM_COLORS</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Assign a colour to each unique label.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    labels : sequence</span>
+<span class="sd">        Labels to colour (e.g. local authorities, postcode areas).</span>
+<span class="sd">    colours : list of str</span>
+<span class="sd">        List of colour names to cycle through.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Mapping {label: colour}.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">labels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">labels</span><span class="p">))</span>
+    <span class="n">colour_cycle</span> <span class="o">=</span> <span class="n">itertools</span><span class="o">.</span><span class="n">cycle</span><span class="p">(</span><span class="n">colours</span><span class="p">)</span>
+    <span class="k">return</span> <span class="p">{</span><span class="n">lab</span><span class="p">:</span> <span class="nb">next</span><span class="p">(</span><span class="n">colour_cycle</span><span class="p">)</span> <span class="k">for</span> <span class="n">lab</span> <span class="ow">in</span> <span class="n">labels</span><span class="p">}</span>
+
+<div class="viewcode-block" id="latest_weather_data">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.latest_weather_data">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">latest_weather_data</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">parameter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rainfall&quot;</span><span class="p">,</span>
+    <span class="n">lat_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;latitude&quot;</span><span class="p">,</span>
+    <span class="n">lon_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;longitude&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot the latest rainfall or river level for each station.</span>
+
+<span class="sd">    The function:</span>
+<span class="sd">    - Filters the data for a chosen parameter (e.g. &quot;rainfall&quot; or &quot;level&quot;)</span>
+<span class="sd">    - Keeps only the most recent reading for each station</span>
+<span class="sd">    - Colours markers by value using simple quartile-based bins</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Dataset with measurement values and coordinates.</span>
+<span class="sd">        Must contain:</span>
+<span class="sd">        - &#39;dateTime&#39;</span>
+<span class="sd">        - &#39;value&#39;</span>
+<span class="sd">        - &#39;parameter&#39;</span>
+<span class="sd">        - &#39;stationReference&#39;</span>
+<span class="sd">        plus latitude/longitude columns.</span>
+<span class="sd">    parameter : str, default &quot;rainfall&quot;</span>
+<span class="sd">        Parameter to plot (e.g. &quot;rainfall&quot;, &quot;level&quot;).</span>
+<span class="sd">    lat_col, lon_col : str</span>
+<span class="sd">        Column names for latitude and longitude.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    folium.Map</span>
+<span class="sd">        A Folium map with one circle marker per station.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Ensure datetime and value are correctly typed</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;dateTime&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;dateTime&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Filter by chosen parameter</span>
+    <span class="n">df_param</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;parameter&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">case</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">df_param</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No rows found for parameter &#39;</span><span class="si">{</span><span class="n">parameter</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Pick latest measurement for each station</span>
+    <span class="n">df_latest</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">df_param</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;dateTime&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;stationReference&quot;</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;last&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">df_latest</span> <span class="o">=</span> <span class="n">df_latest</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="n">lat_col</span><span class="p">,</span> <span class="n">lon_col</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">df_latest</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;No valid rows after filtering/cleaning &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;for parameter &#39;</span><span class="si">{</span><span class="n">parameter</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Simple value-based colour bins using quartiles</span>
+    <span class="n">q25</span> <span class="o">=</span> <span class="n">df_latest</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.25</span><span class="p">)</span>
+    <span class="n">q50</span> <span class="o">=</span> <span class="n">df_latest</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.50</span><span class="p">)</span>
+    <span class="n">q75</span> <span class="o">=</span> <span class="n">df_latest</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.75</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">colour_for_value</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="n">q75</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;red&quot;</span>      <span class="c1"># highest values</span>
+        <span class="k">elif</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="n">q50</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;orange&quot;</span>   <span class="c1"># high</span>
+        <span class="k">elif</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="n">q25</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;green&quot;</span>    <span class="c1"># moderate</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;blue&quot;</span>     <span class="c1"># low</span>
+
+    <span class="c1"># Create map (roughly centred over England)</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="mf">51.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">],</span> <span class="n">zoom_start</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+
+    <span class="c1"># Add markers</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df_latest</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">])</span>
+        <span class="n">colour</span> <span class="o">=</span> <span class="n">colour_for_value</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">popup_html</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Station:&lt;/b&gt; </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;stationReference&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s2"> Value:&lt;/b&gt; </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Time:&lt;/b&gt; </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;dateTime&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="n">folium</span><span class="o">.</span><span class="n">CircleMarker</span><span class="p">(</span>
+            <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="n">lat_col</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="n">lon_col</span><span class="p">]],</span>
+            <span class="n">radius</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">colour</span><span class="p">,</span>
+            <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">fill_color</span><span class="o">=</span><span class="n">colour</span><span class="p">,</span>
+            <span class="n">fill_opacity</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+            <span class="n">popup</span><span class="o">=</span><span class="n">popup_html</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="c1"># Mini legend (static)</span>
+    <span class="n">legend_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    &lt;div style=&quot;</span>
+<span class="s2">        position:absolute; bottom:20px; left:20px; z-index:9999;</span>
+<span class="s2">        background:rgba(255,255,255,0.9); padding:8px 10px;</span>
+<span class="s2">        border-radius:6px; border:1px solid #999; font-size:12px;&quot;&gt;</span>
+<span class="s2">        &lt;b&gt;Latest </span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s2"> value&lt;/b&gt;&lt;br&gt;</span>
+<span class="s2">        &lt;span style=&quot;color:blue;&quot;&gt;●&lt;/span&gt; low&lt;br&gt;</span>
+<span class="s2">        &lt;span style=&quot;color:green;&quot;&gt;●&lt;/span&gt; moderate&lt;br&gt;</span>
+<span class="s2">        &lt;span style=&quot;color:orange;&quot;&gt;●&lt;/span&gt; high&lt;br&gt;</span>
+<span class="s2">        &lt;span style=&quot;color:red;&quot;&gt;●&lt;/span&gt; very high&lt;br&gt;</span>
+<span class="s2">    &lt;/div&gt;</span>
+<span class="s2">    &quot;&quot;&quot;</span>
+    <span class="n">m</span><span class="o">.</span><span class="n">get_root</span><span class="p">()</span><span class="o">.</span><span class="n">html</span><span class="o">.</span><span class="n">add_child</span><span class="p">(</span><span class="n">folium</span><span class="o">.</span><span class="n">Element</span><span class="p">(</span><span class="n">legend_html</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">m</span></div>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Model 1: Historic flood classifier – postcode area (BA, BN, BH, .)</span>
+
+<div class="viewcode-block" id="plot_historic_flood_for_postcode">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.plot_historic_flood_for_postcode">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_historic_flood_for_postcode</span><span class="p">(</span>
+    <span class="n">postcode</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">lat_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;latitude&quot;</span><span class="p">,</span>
+    <span class="n">lon_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;longitude&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Run the historic flood classifier for a single postcode and plot it.</span>
+
+<span class="sd">    This uses `predict_postcode(postcode)` from</span>
+<span class="sd">    `flood_tool.models.historic_flood_classifier` and then shows:</span>
+
+<span class="sd">    - The true historic flood label</span>
+<span class="sd">    - The predicted label</span>
+<span class="sd">    - The predicted probability</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    postcode : str</span>
+<span class="sd">        Full postcode string (e.g. &quot;BH12 1AA&quot;).</span>
+<span class="sd">    lat_col, lon_col : str</span>
+<span class="sd">        Column names for latitude and longitude in the returned DataFrame.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    folium.Map</span>
+<span class="sd">        A small map centred on the postcode with one coloured marker.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">predict_postcode</span><span class="p">(</span><span class="n">postcode</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No data found for postcode &#39;</span><span class="si">{</span><span class="n">postcode</span><span class="si">}</span><span class="s2">&#39;.&quot;</span><span class="p">)</span>
+
+    <span class="n">row</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">lat_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span> <span class="ow">or</span> <span class="n">lon_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;Columns &#39;</span><span class="si">{</span><span class="n">lat_col</span><span class="si">}</span><span class="s2">&#39; and/or &#39;</span><span class="si">{</span><span class="n">lon_col</span><span class="si">}</span><span class="s2">&#39; not found in dataframe. &quot;</span>
+            <span class="s2">&quot;Check the column names in the preprocessed dataset &quot;</span>
+            <span class="s2">&quot;&#39;postcodes_impute_KNN.csv&#39;.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">lat</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">lat_col</span><span class="p">])</span>
+    <span class="n">lon</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="n">lon_col</span><span class="p">])</span>
+
+    <span class="n">fmap</span> <span class="o">=</span> <span class="n">make_base_map</span><span class="p">(</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">,</span> <span class="n">zoom_start</span><span class="o">=</span><span class="mi">13</span><span class="p">)</span>
+
+    <span class="n">pred</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;predictedHistoricFlooded&quot;</span><span class="p">])</span>
+    <span class="n">colour</span> <span class="o">=</span> <span class="s2">&quot;red&quot;</span> <span class="k">if</span> <span class="n">pred</span> <span class="o">==</span> <span class="mi">1</span> <span class="k">else</span> <span class="s2">&quot;blue&quot;</span>
+
+    <span class="n">true_label</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;historicallyFlooded&quot;</span><span class="p">])</span>
+    <span class="n">prob</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;predictedFloodProb&quot;</span><span class="p">])</span>
+
+    <span class="n">popup_html</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Postcode:&lt;/b&gt; </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;postcode&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;True label (historicallyFlooded):&lt;/b&gt; </span><span class="si">{</span><span class="n">true_label</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Predicted:&lt;/b&gt; </span><span class="si">{</span><span class="n">pred</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Predicted probability (class 1):&lt;/b&gt; </span><span class="si">{</span><span class="n">prob</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">folium</span><span class="o">.</span><span class="n">CircleMarker</span><span class="p">(</span>
+        <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">],</span>
+        <span class="n">radius</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+        <span class="n">color</span><span class="o">=</span><span class="n">colour</span><span class="p">,</span>
+        <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">fill_color</span><span class="o">=</span><span class="n">colour</span><span class="p">,</span>
+        <span class="n">fill_opacity</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+        <span class="n">popup</span><span class="o">=</span><span class="n">folium</span><span class="o">.</span><span class="n">Popup</span><span class="p">(</span><span class="n">popup_html</span><span class="p">,</span> <span class="n">max_width</span><span class="o">=</span><span class="mi">300</span><span class="p">),</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">fmap</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">fmap</span></div>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Model 1: Historic flood classifier – postcode areas (BA, BN, BH, …)</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="plot_flood_by_area">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.plot_flood_by_area">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_flood_by_area</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">lat_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;latitude&quot;</span><span class="p">,</span>
+    <span class="n">lon_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;longitude&quot;</span><span class="p">,</span>
+    <span class="n">district_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;postcodeDistrict&quot;</span><span class="p">,</span>
+    <span class="n">flood_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;historicallyFlooded&quot;</span><span class="p">,</span>
+    <span class="n">areas</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">width</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;55%&quot;</span><span class="p">,</span>
+    <span class="n">height</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;380px&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot historic flooding for all postcode units, grouped by *postcode area*.</span>
+
+<span class="sd">    The postcode area is the leading alphabetic part only, e.g.:</span>
+<span class="sd">    - &quot;BA&quot; for &quot;BA1 1AA&quot;</span>
+<span class="sd">    - &quot;BN&quot; for &quot;BN10 7AA&quot;</span>
+
+<span class="sd">    Each area becomes its own layer (FeatureGroup) that you can toggle on/off.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Data with postcode, flood labels and coordinates.</span>
+<span class="sd">    lat_col, lon_col : str</span>
+<span class="sd">        Column names for latitude and longitude.</span>
+<span class="sd">    district_col : str</span>
+<span class="sd">        Column containing the postcode district (e.g. &quot;BA1&quot;, &quot;BN10&quot;).</span>
+<span class="sd">    flood_col : str</span>
+<span class="sd">        Column containing the historic flood label.</span>
+<span class="sd">    areas : list of str, optional</span>
+<span class="sd">        If given, only show these postcode areas (e.g. [&quot;BA&quot;, &quot;BN&quot;]).</span>
+<span class="sd">    width, height : str</span>
+<span class="sd">        Map size passed to Folium.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    folium.Map</span>
+<span class="sd">        Interactive map with a layer per postcode area.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Extract postcode area (leading letters) from postcodeDistrict</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;postcodeArea&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">district_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">extract</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;^([A-Z]+)&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">areas</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;postcodeArea&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">areas</span><span class="p">)]</span>
+
+    <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No data available for the selected postcode areas.&quot;</span><span class="p">)</span>
+
+    <span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span>
+        <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">lat_col</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">(),</span> <span class="n">df</span><span class="p">[</span><span class="n">lon_col</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()],</span>
+        <span class="n">zoom_start</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span>
+        <span class="n">width</span><span class="o">=</span><span class="n">width</span><span class="p">,</span>
+        <span class="n">height</span><span class="o">=</span><span class="n">height</span><span class="p">,</span>
+        <span class="n">control_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">Fullscreen</span><span class="p">(</span><span class="n">position</span><span class="o">=</span><span class="s2">&quot;topleft&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">MiniMap</span><span class="p">(</span><span class="n">toggle_display</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">position</span><span class="o">=</span><span class="s2">&quot;bottomleft&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">MeasureControl</span><span class="p">(</span><span class="n">position</span><span class="o">=</span><span class="s2">&quot;topleft&quot;</span><span class="p">,</span> <span class="n">primary_length_unit</span><span class="o">=</span><span class="s2">&quot;meters&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">MousePosition</span><span class="p">(</span>
+        <span class="n">position</span><span class="o">=</span><span class="s2">&quot;bottomleft&quot;</span><span class="p">,</span>
+        <span class="n">separator</span><span class="o">=</span><span class="s2">&quot; | &quot;</span><span class="p">,</span>
+        <span class="n">num_digits</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+        <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;Lat/Lon:&quot;</span><span class="p">,</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="n">area_list</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;postcodeArea&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;postcodeArea&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+
+    <span class="c1"># Assign colours to areas</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">area_list</span><span class="p">)</span> <span class="o">&lt;=</span> <span class="nb">len</span><span class="p">(</span><span class="n">FOLIUM_COLORS</span><span class="p">):</span>
+        <span class="n">area_colors</span> <span class="o">=</span> <span class="p">{</span><span class="n">area</span><span class="p">:</span> <span class="n">FOLIUM_COLORS</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">area</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">area_list</span><span class="p">)}</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Fall back to HSL colours if there are many areas</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">hsl</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;hsl(</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="mi">360</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="n">n</span><span class="p">))</span><span class="si">}</span><span class="s2">, 70%, 45%)&quot;</span>
+
+        <span class="n">area_colors</span> <span class="o">=</span> <span class="p">{</span><span class="n">area</span><span class="p">:</span> <span class="n">hsl</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">area_list</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">area</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">area_list</span><span class="p">)}</span>
+
+    <span class="c1"># Add one FeatureGroup per area</span>
+    <span class="k">for</span> <span class="n">area</span> <span class="ow">in</span> <span class="n">area_list</span><span class="p">:</span>
+        <span class="n">fg</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">FeatureGroup</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">area</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+        <span class="n">colour</span> <span class="o">=</span> <span class="n">area_colors</span><span class="p">[</span><span class="n">area</span><span class="p">]</span>
+        <span class="n">df_area</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;postcodeArea&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">area</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">df_area</span><span class="o">.</span><span class="n">itertuples</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+            <span class="n">historically_flooded</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">flood_col</span><span class="p">,</span> <span class="s2">&quot;N/A&quot;</span><span class="p">)</span>
+            <span class="n">district</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">district_col</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="n">sector</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;postcodeSector&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+            <span class="n">popup_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">                &lt;b&gt;</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">postcode</span><span class="si">}</span><span class="s2">&lt;/b&gt;&lt;br&gt;</span>
+<span class="s2">                Area: </span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2">&lt;br&gt;</span>
+<span class="s2">                District: </span><span class="si">{</span><span class="n">district</span><span class="si">}</span><span class="s2">&lt;br&gt;</span>
+<span class="s2">                Sector: </span><span class="si">{</span><span class="n">sector</span><span class="si">}</span><span class="s2">&lt;br&gt;</span>
+<span class="s2">                HistoricallyFlooded: </span><span class="si">{</span><span class="n">historically_flooded</span><span class="si">}</span>
+<span class="s2">            &quot;&quot;&quot;</span>
+
+            <span class="n">folium</span><span class="o">.</span><span class="n">CircleMarker</span><span class="p">(</span>
+                <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">lat_col</span><span class="p">),</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">lon_col</span><span class="p">)],</span>
+                <span class="n">radius</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">colour</span><span class="p">,</span>
+                <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">fill_opacity</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span>
+                <span class="n">tooltip</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">r</span><span class="o">.</span><span class="n">postcode</span><span class="si">}</span><span class="s2"> – </span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="n">popup</span><span class="o">=</span><span class="n">popup_html</span><span class="p">,</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">fg</span><span class="p">)</span>
+
+        <span class="n">fg</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="n">folium</span><span class="o">.</span><span class="n">LayerControl</span><span class="p">(</span><span class="n">collapsed</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="c1"># Zoom to data extent</span>
+    <span class="n">m</span><span class="o">.</span><span class="n">fit_bounds</span><span class="p">([</span>
+        <span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">lat_col</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">df</span><span class="p">[</span><span class="n">lon_col</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()],</span>
+        <span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">lat_col</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">df</span><span class="p">[</span><span class="n">lon_col</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()],</span>
+    <span class="p">])</span>
+
+    <span class="c1"># Simple legend</span>
+    <span class="n">legend_rows</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+    <span class="k">for</span> <span class="n">area</span> <span class="ow">in</span> <span class="n">area_list</span><span class="p">:</span>
+        <span class="n">color</span> <span class="o">=</span> <span class="n">area_colors</span><span class="p">[</span><span class="n">area</span><span class="p">]</span>
+        <span class="n">cnt</span> <span class="o">=</span> <span class="n">counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">area</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">legend_rows</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">            &lt;div style=&quot;display:flex;align-items:center;margin:3px 0;&quot;&gt;</span>
+<span class="s2">                &lt;span style=&quot;</span>
+<span class="s2">                    width:12px;height:12px;flex:0 0 12px;</span>
+<span class="s2">                    background:</span><span class="si">{</span><span class="n">color</span><span class="si">}</span><span class="s2">;</span>
+<span class="s2">                    border:1px solid #555;border-radius:2px;</span>
+<span class="s2">                    display:inline-block;margin-right:6px;</span>
+<span class="s2">                &quot;&gt;&lt;/span&gt;</span>
+<span class="s2">                &lt;span style=&quot;font-size:12px;line-height:1;&quot;&gt;</span>
+<span class="s2">                    </span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2"> &lt;span style=&quot;color:#666;&quot;&gt;(</span><span class="si">{</span><span class="n">cnt</span><span class="si">}</span><span class="s2">)&lt;/span&gt;</span>
+<span class="s2">                &lt;/span&gt;</span>
+<span class="s2">            &lt;/div&gt;</span>
+<span class="s2">        &quot;&quot;&quot;</span>
+
+    <span class="n">legend_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">    &lt;div id=&quot;legend-areas&quot; style=&quot;</span>
+<span class="s2">        position:absolute;</span>
+<span class="s2">        bottom:16px;</span>
+<span class="s2">        right:16px;</span>
+<span class="s2">        z-index:9999;</span>
+<span class="s2">        background:rgba(255,255,255,0.95);</span>
+<span class="s2">        padding:8px 10px;</span>
+<span class="s2">        border-radius:6px;</span>
+<span class="s2">        border:1px solid rgba(0,0,0,0.25);</span>
+<span class="s2">        box-shadow:0 2px 8px rgba(0,0,0,0.15);</span>
+<span class="s2">        font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;</span>
+<span class="s2">        &quot;&gt;</span>
+<span class="s2">        &lt;div style=&quot;display:flex;justify-content:space-between;align-items:center;</span>
+<span class="s2">                    gap:12px;margin-bottom:6px;cursor:pointer;&quot;</span>
+<span class="s2">             onclick=&quot;var c=this.nextElementSibling;</span>
+<span class="s2">                      c.style.display=(c.style.display===&#39;none&#39;?&#39;block&#39;:&#39;none&#39;);&quot;&gt;</span>
+<span class="s2">            &lt;div style=&quot;font-weight:600;font-size:13px;&quot;&gt;Postcode Areas&lt;/div&gt;</span>
+<span class="s2">            &lt;div style=&quot;font-size:11px;color:#555;&quot;&gt;toggle&lt;/div&gt;</span>
+<span class="s2">        &lt;/div&gt;</span>
+<span class="s2">        &lt;div style=&quot;max-height:150px;overflow:auto;padding-right:2px;&quot;&gt;</span>
+<span class="s2">            </span><span class="si">{</span><span class="n">legend_rows</span><span class="si">}</span>
+<span class="s2">        &lt;/div&gt;</span>
+<span class="s2">    &lt;/div&gt;</span>
+<span class="s2">    &quot;&quot;&quot;</span>
+    <span class="n">m</span><span class="o">.</span><span class="n">get_root</span><span class="p">()</span><span class="o">.</span><span class="n">html</span><span class="o">.</span><span class="n">add_child</span><span class="p">(</span><span class="n">folium</span><span class="o">.</span><span class="n">Element</span><span class="p">(</span><span class="n">legend_html</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">m</span></div>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Model 2: Local Authority Model and Flood risk Visualization</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="plot_local_authority_map">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.plot_local_authority_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_local_authority_map</span><span class="p">(</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">la_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">easting_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;easting&quot;</span><span class="p">,</span>
+    <span class="n">northing_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;northing&quot;</span><span class="p">,</span>
+    <span class="n">lat_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;latitude&quot;</span><span class="p">,</span>
+    <span class="n">lon_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;longitude&quot;</span><span class="p">,</span>
+    <span class="n">width</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;55%&quot;</span><span class="p">,</span>
+    <span class="n">height</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;380px&quot;</span><span class="p">,</span>
+    <span class="n">zoom_start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">8</span><span class="p">,</span>
+    <span class="n">fmap</span><span class="p">:</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot local authority information as coloured points.</span>
+
+<span class="sd">    This version works directly from a DataFrame (e.g. from a CSV) rather</span>
+<span class="sd">    than using shapefiles or GeoPackages.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Data with local authority labels and coordinates.</span>
+<span class="sd">    la_col : str</span>
+<span class="sd">        Column name containing the local authority label.</span>
+<span class="sd">    easting_col, northing_col : str</span>
+<span class="sd">        Kept for reference; not used directly in the map.</span>
+<span class="sd">    lat_col, lon_col : str</span>
+<span class="sd">        Column names for latitude and longitude.</span>
+<span class="sd">    width, height : str</span>
+<span class="sd">        Map size if a new map is created.</span>
+<span class="sd">    zoom_start : int</span>
+<span class="sd">        Zoom level for a new map.</span>
+<span class="sd">    fmap : folium.Map, optional</span>
+<span class="sd">        Existing map to add this layer to. If None, a new map is created.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    folium.Map</span>
+<span class="sd">        Map with a &quot;Local authority&quot; layer added.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">la_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Column &#39;</span><span class="si">{</span><span class="n">la_col</span><span class="si">}</span><span class="s2">&#39; not found in DataFrame.&quot;</span><span class="p">)</span>
+
+    <span class="n">df_plot</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Use existing map, or create a new one</span>
+    <span class="k">if</span> <span class="n">fmap</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">make_interactive_base_map</span><span class="p">(</span>
+            <span class="n">df_plot</span><span class="p">,</span>
+            <span class="n">lat_col</span><span class="o">=</span><span class="n">lat_col</span><span class="p">,</span>
+            <span class="n">lon_col</span><span class="o">=</span><span class="n">lon_col</span><span class="p">,</span>
+            <span class="n">zoom_start</span><span class="o">=</span><span class="n">zoom_start</span><span class="p">,</span>
+            <span class="n">width</span><span class="o">=</span><span class="n">width</span><span class="p">,</span>
+            <span class="n">height</span><span class="o">=</span><span class="n">height</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="n">fmap</span>
+
+    <span class="n">colour_lookup</span> <span class="o">=</span> <span class="n">_make_colour_lookup</span><span class="p">(</span><span class="n">df_plot</span><span class="p">[</span><span class="n">la_col</span><span class="p">])</span>
+
+    <span class="c1"># Separate layer for local authority points</span>
+    <span class="n">fg</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">FeatureGroup</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Local authority&quot;</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">df_plot</span><span class="o">.</span><span class="n">itertuples</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">la</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">la_col</span><span class="p">)</span>
+        <span class="n">colour</span> <span class="o">=</span> <span class="n">colour_lookup</span><span class="p">[</span><span class="n">la</span><span class="p">]</span>
+        <span class="n">lat</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">lat_col</span><span class="p">)</span>
+        <span class="n">lon</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="n">lon_col</span><span class="p">)</span>
+        <span class="n">postcode</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;postcode&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+
+        <span class="n">popup_html</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Local authority:&lt;/b&gt; </span><span class="si">{</span><span class="n">la</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Postcode:&lt;/b&gt; </span><span class="si">{</span><span class="n">postcode</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;Lat: </span><span class="si">{</span><span class="n">lat</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2">, Lon: </span><span class="si">{</span><span class="n">lon</span><span class="si">:</span><span class="s2">.5f</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">folium</span><span class="o">.</span><span class="n">CircleMarker</span><span class="p">(</span>
+            <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">],</span>
+            <span class="n">radius</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">colour</span><span class="p">,</span>
+            <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">fill_opacity</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span>
+            <span class="n">popup</span><span class="o">=</span><span class="n">popup_html</span><span class="p">,</span>
+            <span class="n">tooltip</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">postcode</span><span class="si">}</span><span class="s2"> – </span><span class="si">{</span><span class="n">la</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">postcode</span> <span class="k">else</span> <span class="n">la</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">fg</span><span class="p">)</span>
+
+    <span class="n">fg</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">folium</span><span class="o">.</span><span class="n">LayerControl</span><span class="p">(</span><span class="n">collapsed</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">m</span></div>
+
+
+<span class="c1"># ---------------------------------------------------------------------------</span>
+<span class="c1"># Model 2: Local Authority + flood risk – polygon and point visualisation</span>
+<span class="c1"># ---------------------------------------------------------------------------</span>
+
+<div class="viewcode-block" id="plot_local_authority_real_shapes">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.plot_local_authority_real_shapes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_local_authority_real_shapes</span><span class="p">(</span>
+    <span class="n">df_units</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">la_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;localAuthority&quot;</span><span class="p">,</span>
+    <span class="n">boundary_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">boundary_name_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;LAD23NM&quot;</span><span class="p">,</span>
+    <span class="n">risk_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;riskLabel&quot;</span><span class="p">,</span>
+    <span class="n">postcode_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;postcode&quot;</span><span class="p">,</span>
+    <span class="n">hist_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;historicallyFlooded&quot;</span><span class="p">,</span>
+    <span class="n">zoom_start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot local authorities using official boundaries and overlay flooded points.</span>
+
+<span class="sd">    - Local authority polygons come from a GeoPackage (ONS LAD 2023).</span>
+<span class="sd">    - Only postcodes with historicallyFlooded == 1 are plotted as points.</span>
+<span class="sd">    - Points are coloured by flood risk.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df_units : pd.DataFrame</span>
+<span class="sd">        Model output at postcode level, including:</span>
+<span class="sd">        - local authority name</span>
+<span class="sd">        - latitude / longitude</span>
+<span class="sd">        - risk label</span>
+<span class="sd">        - historic flood indicator</span>
+<span class="sd">    la_col : str, default &quot;localAuthority&quot;</span>
+<span class="sd">        Column name with local authority names in `df_units`.</span>
+<span class="sd">    boundary_path : str or Path</span>
+<span class="sd">        Path to the boundary GeoPackage (.gpkg) file.</span>
+<span class="sd">    boundary_name_col : str, default &quot;LAD23NM&quot;</span>
+<span class="sd">        Column in the boundary file with local authority names.</span>
+<span class="sd">    risk_col : str, default &quot;riskLabel&quot;</span>
+<span class="sd">        Column with flood risk category/score.</span>
+<span class="sd">    postcode_col : str, default &quot;postcode&quot;</span>
+<span class="sd">        Column with postcode strings, used in popups.</span>
+<span class="sd">    hist_col : str, default &quot;historicallyFlooded&quot;</span>
+<span class="sd">        Column with 0/1 indicator for historic flooding.</span>
+<span class="sd">    zoom_start : int, default 7</span>
+<span class="sd">        Initial zoom level.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    folium.Map</span>
+<span class="sd">        Map with:</span>
+<span class="sd">        - a polygon layer for local authorities</span>
+<span class="sd">        - a point layer for flooded postcodes</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># 1. Validate boundary file path</span>
+    <span class="k">if</span> <span class="n">boundary_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;You must provide boundary_path to the .gpkg file.&quot;</span><span class="p">)</span>
+
+    <span class="n">boundary_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">boundary_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">boundary_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Boundary file not found at: </span><span class="si">{</span><span class="n">boundary_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 2. Load boundaries</span>
+    <span class="n">gdf_bound</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="n">boundary_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">gdf_bound</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">gdf_bound</span><span class="o">.</span><span class="n">crs</span><span class="o">.</span><span class="n">to_string</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;EPSG:4326&quot;</span><span class="p">:</span>
+        <span class="n">gdf_bound</span> <span class="o">=</span> <span class="n">gdf_bound</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">)</span>
+
+    <span class="c1"># 2b. Work with a copy of units &amp; keep only historically flooded == 1</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df_units</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">hist_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Column &#39;</span><span class="si">{</span><span class="n">hist_col</span><span class="si">}</span><span class="s2">&#39; not found in df_units.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Keep only rows where historicallyFlooded == 1</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">hist_col</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;No rows with &#39;</span><span class="si">{</span><span class="n">hist_col</span><span class="si">}</span><span class="s2"> == 1&#39; – nothing to plot.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Clean names for matching</span>
+    <span class="n">df</span><span class="p">[</span><span class="n">la_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">la_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="n">gdf_bound</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">gdf_bound</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="c1"># 3. Filter to authorities present in df (only those with histFlood=1)</span>
+    <span class="n">las_predicted</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">la_col</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    <span class="n">gdf_subset</span> <span class="o">=</span> <span class="n">gdf_bound</span><span class="p">[</span><span class="n">gdf_bound</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">las_predicted</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdf_subset</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;No matching local authority names found between model and boundary file.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># 4. Colour polygons per authority</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="s2">&quot;green&quot;</span><span class="p">,</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="s2">&quot;orange&quot;</span><span class="p">,</span> <span class="s2">&quot;darkred&quot;</span><span class="p">,</span> <span class="s2">&quot;lightred&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;beige&quot;</span><span class="p">,</span> <span class="s2">&quot;darkblue&quot;</span><span class="p">,</span> <span class="s2">&quot;darkgreen&quot;</span><span class="p">,</span> <span class="s2">&quot;cadetblue&quot;</span><span class="p">,</span> <span class="s2">&quot;darkpurple&quot;</span><span class="p">,</span> <span class="s2">&quot;white&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;pink&quot;</span><span class="p">,</span> <span class="s2">&quot;lightblue&quot;</span><span class="p">,</span> <span class="s2">&quot;lightgreen&quot;</span><span class="p">,</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="s2">&quot;lightgray&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+
+    <span class="n">la_list</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">gdf_subset</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="n">color_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">la</span><span class="p">:</span> <span class="n">colors</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">colors</span><span class="p">)]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">la</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">la_list</span><span class="p">)}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">style_function</span><span class="p">(</span><span class="n">feature</span><span class="p">):</span>
+        <span class="n">la_name</span> <span class="o">=</span> <span class="n">feature</span><span class="p">[</span><span class="s2">&quot;properties&quot;</span><span class="p">][</span><span class="n">boundary_name_col</span><span class="p">]</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">color_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">la_name</span><span class="p">,</span> <span class="s2">&quot;lightgray&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;fillColor&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;fillOpacity&quot;</span><span class="p">:</span> <span class="mf">0.45</span><span class="p">}</span>
+
+    <span class="c1"># 5. Base map</span>
+    <span class="n">center_lat</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">center_lon</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">center_lat</span><span class="p">,</span> <span class="n">center_lon</span><span class="p">],</span> <span class="n">zoom_start</span><span class="o">=</span><span class="n">zoom_start</span><span class="p">)</span>
+
+    <span class="c1"># Local authority polygons</span>
+    <span class="n">folium</span><span class="o">.</span><span class="n">GeoJson</span><span class="p">(</span>
+        <span class="n">gdf_subset</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Local Authorities&quot;</span><span class="p">,</span>
+        <span class="n">style_function</span><span class="o">=</span><span class="n">style_function</span><span class="p">,</span>
+        <span class="n">tooltip</span><span class="o">=</span><span class="n">folium</span><span class="o">.</span><span class="n">GeoJsonTooltip</span><span class="p">(</span>
+            <span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">],</span>
+            <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Local Authority:&quot;</span><span class="p">],</span>
+        <span class="p">),</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="c1"># 6. Flood-risk points layer (only histFlood == 1 rows)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">risk_color</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Map a numeric risk score to a colour.</span>
+
+<span class="sd">        Assumes risk values like 1–6 where higher means higher risk.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;lightgray&quot;</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;green&quot;</span><span class="p">,</span>
+            <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;yellow&quot;</span><span class="p">,</span>
+            <span class="mi">3</span><span class="p">:</span> <span class="s2">&quot;orange&quot;</span><span class="p">,</span>
+            <span class="mi">4</span><span class="p">:</span> <span class="s2">&quot;red&quot;</span><span class="p">,</span>
+            <span class="mi">5</span><span class="p">:</span> <span class="s2">&quot;darkred&quot;</span><span class="p">,</span>
+            <span class="mi">6</span><span class="p">:</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;black&quot;</span><span class="p">)</span>
+
+    <span class="n">points_layer</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">FeatureGroup</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Flood risk points&quot;</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">lat</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span>
+        <span class="n">lon</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span>
+        <span class="n">risk</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="n">risk_col</span><span class="p">]</span>
+
+        <span class="n">popup_parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">postcode_col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">popup_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Postcode: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="n">postcode_col</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">popup_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Risk label: </span><span class="si">{</span><span class="n">risk</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">popup_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Historically flooded: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="n">hist_col</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>  <span class="c1"># always 1 now</span>
+
+        <span class="n">popup_html</span> <span class="o">=</span> <span class="s2">&quot;&lt;br&gt;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">popup_parts</span><span class="p">)</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">risk_color</span><span class="p">(</span><span class="n">risk</span><span class="p">)</span>
+
+        <span class="n">folium</span><span class="o">.</span><span class="n">CircleMarker</span><span class="p">(</span>
+            <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">],</span>
+            <span class="n">radius</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">col</span><span class="p">,</span>
+            <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">fill_color</span><span class="o">=</span><span class="n">col</span><span class="p">,</span>
+            <span class="n">fill_opacity</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+            <span class="n">weight</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+            <span class="n">popup</span><span class="o">=</span><span class="n">popup_html</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">points_layer</span><span class="p">)</span>
+
+    <span class="n">points_layer</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="n">folium</span><span class="o">.</span><span class="n">LayerControl</span><span class="p">()</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">m</span></div>
+
+
+
+<span class="c1"># ----------------------------------------------------------------------------------------</span>
+<span class="c1"># Rainfall and Water Level Overlay Layer</span>
+<span class="c1"># ----------------------------------------------------------------------------------------</span>
+
+<span class="k">def</span><span class="w"> </span><span class="nf">add_latest_weather_layer</span><span class="p">(</span>
+    <span class="n">fmap</span><span class="p">:</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">,</span>
+    <span class="n">df</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">parameter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rainfall&quot;</span><span class="p">,</span>
+    <span class="n">lat_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;latitude&quot;</span><span class="p">,</span>
+    <span class="n">lon_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;longitude&quot;</span><span class="p">,</span>
+    <span class="n">show</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="n">layer_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Add the latest rainfall or river level readings as a new layer on a map.</span>
+
+<span class="sd">    This is the same idea as `plot_latest_weather_data`, but instead of</span>
+<span class="sd">    creating a new map, it adds a FeatureGroup to an existing one.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    fmap : folium.Map</span>
+<span class="sd">        Existing map (e.g. from `plot_flood_by_area`).</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Dataset with:</span>
+<span class="sd">        - &#39;dateTime&#39;</span>
+<span class="sd">        - &#39;value&#39;</span>
+<span class="sd">        - &#39;parameter&#39;</span>
+<span class="sd">        - &#39;stationReference&#39;</span>
+<span class="sd">        plus latitude/longitude columns.</span>
+<span class="sd">    parameter : str, default &quot;rainfall&quot;</span>
+<span class="sd">        Parameter to plot (e.g. &quot;rainfall&quot;, &quot;level&quot;).</span>
+<span class="sd">    lat_col, lon_col : str</span>
+<span class="sd">        Column names for latitude and longitude.</span>
+<span class="sd">    show : bool, default False</span>
+<span class="sd">        Whether this layer is visible by default.</span>
+<span class="sd">    layer_name : str, optional</span>
+<span class="sd">        Name in the layer control. Defaults to &quot;Latest &lt;parameter&gt;&quot;.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    folium.Map</span>
+<span class="sd">        The same map, with an extra weather layer added.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Clean types</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;dateTime&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;dateTime&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Filter by parameter</span>
+    <span class="n">df_param</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;parameter&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">case</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+    <span class="k">if</span> <span class="n">df_param</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No rows found for parameter &#39;</span><span class="si">{</span><span class="n">parameter</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Latest per station</span>
+    <span class="n">df_latest</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="n">df_param</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;dateTime&quot;</span><span class="p">)</span>
+        <span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;stationReference&quot;</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;last&quot;</span><span class="p">)</span>
+    <span class="p">)</span>
+    <span class="n">df_latest</span> <span class="o">=</span> <span class="n">df_latest</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="n">lat_col</span><span class="p">,</span> <span class="n">lon_col</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">])</span>
+
+    <span class="k">if</span> <span class="n">df_latest</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;No valid rows after filtering/cleaning &quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;for parameter &#39;</span><span class="si">{</span><span class="n">parameter</span><span class="si">}</span><span class="s2">&#39;.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Value-based bins using quartiles (same idea as plot_latest_weather_data)</span>
+    <span class="n">q25</span> <span class="o">=</span> <span class="n">df_latest</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.25</span><span class="p">)</span>
+    <span class="n">q50</span> <span class="o">=</span> <span class="n">df_latest</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.50</span><span class="p">)</span>
+    <span class="n">q75</span> <span class="o">=</span> <span class="n">df_latest</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.75</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">colour_for_value</span><span class="p">(</span><span class="n">v</span><span class="p">:</span> <span class="nb">float</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="n">q75</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;red&quot;</span>
+        <span class="k">elif</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="n">q50</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;orange&quot;</span>
+        <span class="k">elif</span> <span class="n">v</span> <span class="o">&gt;=</span> <span class="n">q25</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;green&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;blue&quot;</span>
+
+    <span class="n">fg_name</span> <span class="o">=</span> <span class="n">layer_name</span> <span class="ow">or</span> <span class="sa">f</span><span class="s2">&quot;Latest </span><span class="si">{</span><span class="n">parameter</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">fg</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">FeatureGroup</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">fg_name</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="n">show</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df_latest</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">])</span>
+        <span class="n">colour</span> <span class="o">=</span> <span class="n">colour_for_value</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="n">popup_html</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Station:&lt;/b&gt; </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;stationReference&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s2"> Value:&lt;/b&gt; </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Time:&lt;/b&gt; </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;dateTime&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="p">)</span>
+        <span class="n">folium</span><span class="o">.</span><span class="n">CircleMarker</span><span class="p">(</span>
+            <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="n">lat_col</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="n">lon_col</span><span class="p">]],</span>
+            <span class="n">radius</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">colour</span><span class="p">,</span>
+            <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">fill_color</span><span class="o">=</span><span class="n">colour</span><span class="p">,</span>
+            <span class="n">fill_opacity</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+            <span class="n">popup</span><span class="o">=</span><span class="n">popup_html</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">fg</span><span class="p">)</span>
+
+    <span class="n">fg</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">fmap</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">fmap</span>
+
+<span class="c1"># ----------------------------------------------------------------------------------------</span>
+<span class="c1"># Rainfall and Water Level Overlay Layer +++Combine ALL MAPS</span>
+<span class="c1"># ----------------------------------------------------------------------------------------</span>
+<div class="viewcode-block" id="plot_combined_flood_and_rain_map">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.plot_combined_flood_and_rain_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_combined_flood_and_rain_map</span><span class="p">(</span>
+    <span class="n">df_units</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">df_rain</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">la_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;localAuthority&quot;</span><span class="p">,</span>
+    <span class="n">boundary_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">boundary_name_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;LAD23NM&quot;</span><span class="p">,</span>
+    <span class="n">risk_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;riskLabel&quot;</span><span class="p">,</span>
+    <span class="n">postcode_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;postcode&quot;</span><span class="p">,</span>
+    <span class="n">hist_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;historicallyFlooded&quot;</span><span class="p">,</span>
+    <span class="n">zoom_start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">,</span>
+    <span class="n">rain_parameter</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;rainfall&quot;</span><span class="p">,</span>
+    <span class="n">rain_lat_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;latitude&quot;</span><span class="p">,</span>
+    <span class="n">rain_lon_col</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;longitude&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Combined map with:</span>
+<span class="sd">    - Local authority polygons</span>
+<span class="sd">    - Historically flooded postcode points coloured by flood risk</span>
+<span class="sd">    - Latest rainfall (or level) as a separate toggleable layer</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># --- 1. First create the LA + flood-risk map using your existing logic ---</span>
+
+    <span class="c1"># This is basically an inline version of plot_local_authority_real_shapes,</span>
+    <span class="c1"># slightly simplified so we can attach the rainfall layer at the end.</span>
+
+    <span class="k">if</span> <span class="n">boundary_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;You must provide boundary_path to the .gpkg file.&quot;</span><span class="p">)</span>
+
+    <span class="n">boundary_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">boundary_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">boundary_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Boundary file not found at: </span><span class="si">{</span><span class="n">boundary_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Load boundaries</span>
+    <span class="n">gdf_bound</span> <span class="o">=</span> <span class="n">gpd</span><span class="o">.</span><span class="n">read_file</span><span class="p">(</span><span class="n">boundary_path</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">gdf_bound</span><span class="o">.</span><span class="n">crs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">gdf_bound</span><span class="o">.</span><span class="n">crs</span><span class="o">.</span><span class="n">to_string</span><span class="p">()</span> <span class="o">!=</span> <span class="s2">&quot;EPSG:4326&quot;</span><span class="p">:</span>
+        <span class="n">gdf_bound</span> <span class="o">=</span> <span class="n">gdf_bound</span><span class="o">.</span><span class="n">to_crs</span><span class="p">(</span><span class="s2">&quot;EPSG:4326&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Work on a copy and keep only historically flooded rows</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df_units</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">hist_col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Column &#39;</span><span class="si">{</span><span class="n">hist_col</span><span class="si">}</span><span class="s2">&#39; not found in df_units.&quot;</span><span class="p">)</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="n">hist_col</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No rows with &#39;</span><span class="si">{</span><span class="n">hist_col</span><span class="si">}</span><span class="s2"> == 1&#39; – nothing to plot.&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Clean names for matching with boundaries</span>
+    <span class="n">df</span><span class="p">[</span><span class="n">la_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">la_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="n">gdf_bound</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">]</span> <span class="o">=</span> <span class="n">gdf_bound</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="c1"># Filter boundaries to only those LAs present in flooded data</span>
+    <span class="n">las_predicted</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">la_col</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    <span class="n">gdf_subset</span> <span class="o">=</span> <span class="n">gdf_bound</span><span class="p">[</span><span class="n">gdf_bound</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">]</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">las_predicted</span><span class="p">)]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">gdf_subset</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;No matching local authority names found between model and boundary file.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="c1"># Colour polygons per authority</span>
+    <span class="n">colors</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="s2">&quot;blue&quot;</span><span class="p">,</span> <span class="s2">&quot;green&quot;</span><span class="p">,</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span> <span class="s2">&quot;orange&quot;</span><span class="p">,</span> <span class="s2">&quot;darkred&quot;</span><span class="p">,</span> <span class="s2">&quot;lightred&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;beige&quot;</span><span class="p">,</span> <span class="s2">&quot;darkblue&quot;</span><span class="p">,</span> <span class="s2">&quot;darkgreen&quot;</span><span class="p">,</span> <span class="s2">&quot;cadetblue&quot;</span><span class="p">,</span> <span class="s2">&quot;darkpurple&quot;</span><span class="p">,</span> <span class="s2">&quot;white&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;pink&quot;</span><span class="p">,</span> <span class="s2">&quot;lightblue&quot;</span><span class="p">,</span> <span class="s2">&quot;lightgreen&quot;</span><span class="p">,</span> <span class="s2">&quot;gray&quot;</span><span class="p">,</span> <span class="s2">&quot;black&quot;</span><span class="p">,</span> <span class="s2">&quot;lightgray&quot;</span><span class="p">,</span>
+    <span class="p">]</span>
+    <span class="n">la_list</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">gdf_subset</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="n">color_map</span> <span class="o">=</span> <span class="p">{</span><span class="n">la</span><span class="p">:</span> <span class="n">colors</span><span class="p">[</span><span class="n">i</span> <span class="o">%</span> <span class="nb">len</span><span class="p">(</span><span class="n">colors</span><span class="p">)]</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">la</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">la_list</span><span class="p">)}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">style_function</span><span class="p">(</span><span class="n">feature</span><span class="p">):</span>
+        <span class="n">la_name</span> <span class="o">=</span> <span class="n">feature</span><span class="p">[</span><span class="s2">&quot;properties&quot;</span><span class="p">][</span><span class="n">boundary_name_col</span><span class="p">]</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">color_map</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">la_name</span><span class="p">,</span> <span class="s2">&quot;lightgray&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;fillColor&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">,</span> <span class="s2">&quot;color&quot;</span><span class="p">:</span> <span class="n">col</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;fillOpacity&quot;</span><span class="p">:</span> <span class="mf">0.45</span><span class="p">}</span>
+
+    <span class="c1"># Base map centred on flooded postcodes</span>
+    <span class="n">center_lat</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">center_lon</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">center_lat</span><span class="p">,</span> <span class="n">center_lon</span><span class="p">],</span> <span class="n">zoom_start</span><span class="o">=</span><span class="n">zoom_start</span><span class="p">)</span>
+
+    <span class="c1"># Add LA polygons</span>
+    <span class="n">folium</span><span class="o">.</span><span class="n">GeoJson</span><span class="p">(</span>
+        <span class="n">gdf_subset</span><span class="p">,</span>
+        <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Local Authorities&quot;</span><span class="p">,</span>
+        <span class="n">style_function</span><span class="o">=</span><span class="n">style_function</span><span class="p">,</span>
+        <span class="n">tooltip</span><span class="o">=</span><span class="n">folium</span><span class="o">.</span><span class="n">GeoJsonTooltip</span><span class="p">(</span>
+            <span class="n">fields</span><span class="o">=</span><span class="p">[</span><span class="n">boundary_name_col</span><span class="p">],</span>
+            <span class="n">aliases</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Local Authority:&quot;</span><span class="p">],</span>
+        <span class="p">),</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="c1"># Flood-risk points layer (only histFlood == 1)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">risk_color</span><span class="p">(</span><span class="n">r</span><span class="p">):</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="mi">0</span><span class="p">:</span> <span class="s2">&quot;lightgray&quot;</span><span class="p">,</span>
+            <span class="mi">1</span><span class="p">:</span> <span class="s2">&quot;green&quot;</span><span class="p">,</span>
+            <span class="mi">2</span><span class="p">:</span> <span class="s2">&quot;yellow&quot;</span><span class="p">,</span>
+            <span class="mi">3</span><span class="p">:</span> <span class="s2">&quot;orange&quot;</span><span class="p">,</span>
+            <span class="mi">4</span><span class="p">:</span> <span class="s2">&quot;red&quot;</span><span class="p">,</span>
+            <span class="mi">5</span><span class="p">:</span> <span class="s2">&quot;darkred&quot;</span><span class="p">,</span>
+            <span class="mi">6</span><span class="p">:</span> <span class="s2">&quot;purple&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="n">mapping</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">r</span><span class="p">,</span> <span class="s2">&quot;black&quot;</span><span class="p">)</span>
+
+    <span class="n">points_layer</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">FeatureGroup</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Flood risk points (hist=1)&quot;</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">lat</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;latitude&quot;</span><span class="p">]</span>
+        <span class="n">lon</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;longitude&quot;</span><span class="p">]</span>
+        <span class="n">risk</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="n">risk_col</span><span class="p">]</span>
+
+        <span class="n">popup_parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">postcode_col</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+            <span class="n">popup_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Postcode: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="n">postcode_col</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">popup_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Risk label: </span><span class="si">{</span><span class="n">risk</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">popup_parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Historically flooded: </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="n">hist_col</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="n">popup_html</span> <span class="o">=</span> <span class="s2">&quot;&lt;br&gt;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">popup_parts</span><span class="p">)</span>
+        <span class="n">col</span> <span class="o">=</span> <span class="n">risk_color</span><span class="p">(</span><span class="n">risk</span><span class="p">)</span>
+
+        <span class="n">folium</span><span class="o">.</span><span class="n">CircleMarker</span><span class="p">(</span>
+            <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">lat</span><span class="p">,</span> <span class="n">lon</span><span class="p">],</span>
+            <span class="n">radius</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">col</span><span class="p">,</span>
+            <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">fill_color</span><span class="o">=</span><span class="n">col</span><span class="p">,</span>
+            <span class="n">fill_opacity</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span>
+            <span class="n">weight</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+            <span class="n">popup</span><span class="o">=</span><span class="n">popup_html</span><span class="p">,</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">points_layer</span><span class="p">)</span>
+
+    <span class="n">points_layer</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="c1"># --- 2. Add latest rainfall (or level) as a separate layer on top ---</span>
+
+    <span class="n">m</span> <span class="o">=</span> <span class="n">add_latest_weather_layer</span><span class="p">(</span>
+        <span class="n">fmap</span><span class="o">=</span><span class="n">m</span><span class="p">,</span>
+        <span class="n">df</span><span class="o">=</span><span class="n">df_rain</span><span class="p">,</span>
+        <span class="n">parameter</span><span class="o">=</span><span class="n">rain_parameter</span><span class="p">,</span>
+        <span class="n">lat_col</span><span class="o">=</span><span class="n">rain_lat_col</span><span class="p">,</span>
+        <span class="n">lon_col</span><span class="o">=</span><span class="n">rain_lon_col</span><span class="p">,</span>
+        <span class="n">show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>                        
+        <span class="n">layer_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Latest </span><span class="si">{</span><span class="n">rain_parameter</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">folium</span><span class="o">.</span><span class="n">LayerControl</span><span class="p">(</span><span class="n">collapsed</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">m</span></div>
+
+
+
+<div class="viewcode-block" id="plot_color_size_map">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.plot_color_size_map">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_color_size_map</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">feature</span><span class="p">,</span> <span class="n">size_feature</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">lat_col</span><span class="o">=</span><span class="s2">&quot;latitude&quot;</span><span class="p">,</span>
+                        <span class="n">lon_col</span><span class="o">=</span><span class="s2">&quot;longitude&quot;</span><span class="p">,</span> <span class="n">invert_size</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Map plotting for two features: color-coded by &quot;feature&quot; and</span>
+<span class="sd">    optionally marker size by &quot;size_feature&quot;.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df: pd.DataFrame</span>
+<span class="sd">        Must contain latitude and longitude columns for geographical plotting.</span>
+<span class="sd">    feature: str</span>
+<span class="sd">        Column to visualise with color.</span>
+<span class="sd">    size_feature: str or None</span>
+<span class="sd">        Column to visualise with marker radius. If None, uses fixed size.</span>
+<span class="sd">    lat_col, lon_col: str</span>
+<span class="sd">        GPS coordinate column names. Default &quot;latitude&quot; and &quot;longitude&quot;.</span>
+<span class="sd">    invert_size: bool</span>
+<span class="sd">        If True, larger values of size_feature produce smaller markers.</span>
+<span class="sd">        Useful for visualising e.g. distanceToWatercourse for risk analysis.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Folium map object.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    --------</span>
+<span class="sd">    Plot riskLabel for color, medianPrice for marker size:</span>
+<span class="sd">    &gt;&gt;&gt; plot_color_size_map(df, feature=&quot;riskLabel&quot;,    # doctest: +SKIP</span>
+<span class="sd">                            size_feature=&quot;medianPrice&quot;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Plot a folium map roughly centered around England</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="mf">51.</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">zoom_start</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+
+    <span class="n">color_values</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">feature</span><span class="p">]</span>
+
+    <span class="c1"># Remove rows with NaN in latitude or longitude</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="n">lat_col</span><span class="p">,</span> <span class="n">lon_col</span><span class="p">])</span>
+
+    <span class="n">color_scale</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># initialize</span>
+
+    <span class="c1"># Detect whether the feature is categorical</span>
+    <span class="k">if</span> <span class="n">color_values</span><span class="o">.</span><span class="n">dtype</span> <span class="o">==</span> <span class="s2">&quot;object&quot;</span> <span class="ow">or</span> <span class="n">df</span><span class="p">[</span><span class="n">feature</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">&lt;=</span> <span class="mi">10</span><span class="p">:</span>
+        <span class="n">categories</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">color_values</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">categories</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">get_color</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">cm</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">OrRd_09</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)(</span><span class="mf">0.5</span><span class="p">)</span>
+            <span class="n">step_colormap</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># no legend needed</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Create a StepColormap with discrete colors for each category</span>
+            <span class="n">step_colormap</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">OrRd_09</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="n">categories</span><span class="p">),</span>
+                                                    <span class="nb">max</span><span class="p">(</span><span class="n">categories</span><span class="p">))</span><span class="o">.</span><span class="n">to_step</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+            <span class="n">step_colormap</span><span class="o">.</span><span class="n">index</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">categories</span><span class="p">)</span>  <span class="c1"># map steps</span>
+
+            <span class="c1"># Map category value to color</span>
+            <span class="n">cat_to_color</span> <span class="o">=</span> <span class="p">{</span><span class="n">cat</span><span class="p">:</span> <span class="n">step_colormap</span><span class="p">(</span><span class="n">cat</span><span class="p">)</span> <span class="k">for</span> <span class="n">cat</span> <span class="ow">in</span> <span class="n">categories</span><span class="p">}</span>
+
+            <span class="k">def</span><span class="w"> </span><span class="nf">get_color</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">cat_to_color</span><span class="p">[</span><span class="n">val</span><span class="p">]</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Continuous feature</span>
+        <span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">color_values</span><span class="p">,</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">99</span><span class="p">])</span>
+        <span class="n">color_scale</span> <span class="o">=</span> <span class="n">cm</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">YlGnBu_09</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="p">)</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_color</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">color_scale</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+
+        <span class="n">step_colormap</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># to handle legend later</span>
+
+    <span class="c1"># Handle size_feature if provided</span>
+    <span class="k">if</span> <span class="n">size_feature</span><span class="p">:</span>
+        <span class="n">size_values</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">size_feature</span><span class="p">]</span>
+        <span class="n">smin</span><span class="p">,</span> <span class="n">smax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">size_values</span><span class="o">.</span><span class="n">dropna</span><span class="p">(),</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">99</span><span class="p">])</span>
+
+        <span class="c1"># Add title</span>
+        <span class="n">map_title</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Color: </span><span class="si">{</span><span class="n">feature</span><span class="si">}</span><span class="se">\n</span><span class="s2">Size: </span><span class="si">{</span><span class="n">size_feature</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">title_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;&lt;h1 style=&quot;position:absolute;z-index:100000;</span>
+<span class="s2">        left:5vw;top:10px;font-size:16px;&quot; &gt;</span><span class="si">{</span><span class="n">map_title</span><span class="si">}</span><span class="s2">&lt;/h1&gt;&quot;&quot;&quot;</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">get_root</span><span class="p">()</span><span class="o">.</span><span class="n">html</span><span class="o">.</span><span class="n">add_child</span><span class="p">(</span><span class="n">folium</span><span class="o">.</span><span class="n">Element</span><span class="p">(</span><span class="n">title_html</span><span class="p">))</span>
+
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_radius</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">invert_size</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">[</span><span class="n">smin</span><span class="p">,</span> <span class="n">smax</span><span class="p">],</span> <span class="p">[</span><span class="mi">25</span><span class="p">,</span> <span class="mi">5</span><span class="p">])</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="p">[</span><span class="n">smin</span><span class="p">,</span> <span class="n">smax</span><span class="p">],</span> <span class="p">[</span><span class="mi">5</span><span class="p">,</span> <span class="mi">25</span><span class="p">])</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># Add title</span>
+        <span class="n">map_title</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Plot of </span><span class="si">{</span><span class="n">feature</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">title_html</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;&quot;&quot;&lt;h1 style=&quot;position:absolute;z-index:100000;</span>
+<span class="s2">        left:5vw;top:10px;font-size:16px;&quot; &gt;</span><span class="si">{</span><span class="n">map_title</span><span class="si">}</span><span class="s2">&lt;/h1&gt;&quot;&quot;&quot;</span>
+        <span class="n">m</span><span class="o">.</span><span class="n">get_root</span><span class="p">()</span><span class="o">.</span><span class="n">html</span><span class="o">.</span><span class="n">add_child</span><span class="p">(</span><span class="n">folium</span><span class="o">.</span><span class="n">Element</span><span class="p">(</span><span class="n">title_html</span><span class="p">))</span>
+
+        <span class="c1"># default radius</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">get_radius</span><span class="p">(</span><span class="n">val</span><span class="p">):</span>
+            <span class="k">return</span> <span class="mi">6</span>
+
+    <span class="c1"># Plot points</span>
+    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+        <span class="n">cval</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="n">feature</span><span class="p">]</span>
+        <span class="n">sval</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="n">size_feature</span><span class="p">]</span> <span class="k">if</span> <span class="n">size_feature</span> <span class="k">else</span> <span class="kc">None</span>
+
+        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">cval</span><span class="p">):</span>
+            <span class="k">continue</span>
+
+        <span class="n">folium</span><span class="o">.</span><span class="n">CircleMarker</span><span class="p">(</span>
+            <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="n">lat_col</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="n">lon_col</span><span class="p">]],</span>
+            <span class="n">radius</span><span class="o">=</span><span class="n">get_radius</span><span class="p">(</span><span class="n">sval</span><span class="p">),</span>
+            <span class="n">color</span><span class="o">=</span><span class="n">get_color</span><span class="p">(</span><span class="n">cval</span><span class="p">),</span>
+            <span class="n">popup</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">feature</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">cval</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="o">+</span> <span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&lt;br&gt;</span><span class="si">{</span><span class="n">size_feature</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">sval</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="n">size_feature</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="c1"># Add legend if categorical or continuous</span>
+    <span class="k">if</span> <span class="n">step_colormap</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">step_colormap</span><span class="o">.</span><span class="n">caption</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">feature</span><span class="si">}</span><span class="s2"> (categorical)&quot;</span>
+        <span class="n">step_colormap</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">color_scale</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">color_scale</span><span class="o">.</span><span class="n">caption</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">feature</span><span class="si">}</span><span class="s2"> (continuous)&quot;</span>
+        <span class="n">color_scale</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">m</span></div>
+
+
+
+<div class="viewcode-block" id="filtered_plot">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.filtered_plot">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">filtered_plot</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">feature1</span><span class="p">,</span> <span class="n">feature2</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                  <span class="n">lat_col</span><span class="o">=</span><span class="s2">&quot;latitude&quot;</span><span class="p">,</span> <span class="n">lon_col</span><span class="o">=</span><span class="s2">&quot;longitude&quot;</span><span class="p">,</span>
+                  <span class="n">feature1_min</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">feature1_max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                  <span class="n">feature2_min</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">feature2_max</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+                  <span class="n">invert_size</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Map plotting for two features: color-coded by &quot;riskLabel&quot; and</span>
+<span class="sd">    optional marker size by &quot;medianPrice&quot;, with optional thresholds.</span>
+<span class="sd">    The features must be numeric, including categorical labels (e.g. 1, 2, 3).</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df: pd.DataFrame</span>
+<span class="sd">        Must contain latitude and longitude columns.</span>
+<span class="sd">    feature1: str</span>
+<span class="sd">        A feature to visualise with color.</span>
+<span class="sd">    feature2: str or None</span>
+<span class="sd">        An optional feature to visualise with marker size.</span>
+<span class="sd">    lat_col, lon_col: str</span>
+<span class="sd">        GPS coordinate column names. Default &quot;latitude&quot;, &quot;longitude&quot;</span>
+<span class="sd">    feature1_min, feature1_max: float or None</span>
+<span class="sd">        Optional: Min and max threshold for filtering the color</span>
+<span class="sd">        feature (inclusive).</span>
+<span class="sd">    feature2_min, feature2_max: float or None</span>
+<span class="sd">        Optional: Min and max threshold for filtering the size</span>
+<span class="sd">        feature (inclusive).</span>
+<span class="sd">    invert_size: bool</span>
+<span class="sd">        If True, larger values of feature2 produce smaller markers.</span>
+<span class="sd">        Useful for visualising e.g. distanceToWatercourse for risk analysis.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Folium map object.</span>
+
+<span class="sd">    Example</span>
+<span class="sd">    --------</span>
+<span class="sd">    Plot riskLabel for color, distanceToWatercourse for marker size (inverted),</span>
+<span class="sd">    for riskLabel &gt; 5, distanceToWatercourse &gt;= 250m:</span>
+<span class="sd">    &gt;&gt;&gt; filtered_plot(df1, feature1=&quot;riskLabel&quot;,            # doctest: +SKIP</span>
+<span class="sd">                      feature2=&quot;distanceToWatercourse&quot;,</span>
+<span class="sd">                      feature1_min=6, feature1_max=None,</span>
+<span class="sd">                      feature2_min=None, feature2_max=250, invert_size=True)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">filtered_df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">feature1_min</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">filtered_df</span> <span class="o">=</span> <span class="n">filtered_df</span><span class="p">[</span><span class="n">filtered_df</span><span class="p">[</span><span class="n">feature1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">feature1_min</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">feature1_max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">filtered_df</span> <span class="o">=</span> <span class="n">filtered_df</span><span class="p">[</span><span class="n">filtered_df</span><span class="p">[</span><span class="n">feature1</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">feature1_max</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">feature2</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">feature2_min</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">filtered_df</span> <span class="o">=</span> <span class="n">filtered_df</span><span class="p">[</span><span class="n">filtered_df</span><span class="p">[</span><span class="n">feature2</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">feature2_min</span><span class="p">]</span>
+        <span class="k">if</span> <span class="n">feature2_max</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">filtered_df</span> <span class="o">=</span> <span class="n">filtered_df</span><span class="p">[</span><span class="n">filtered_df</span><span class="p">[</span><span class="n">feature2</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">feature2_max</span><span class="p">]</span>
+
+    <span class="n">filtered_df</span> <span class="o">=</span> <span class="n">filtered_df</span><span class="o">.</span><span class="n">dropna</span><span class="p">()</span>
+
+    <span class="c1"># Check if filtered dataframe is empty</span>
+    <span class="k">if</span> <span class="n">filtered_df</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No data remaining after filtering.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">plot_color_size_map</span><span class="p">(</span><span class="n">filtered_df</span><span class="p">,</span> <span class="n">feature1</span><span class="p">,</span> <span class="n">feature2</span><span class="p">,</span>
+                               <span class="n">lat_col</span><span class="o">=</span><span class="n">lat_col</span><span class="p">,</span> <span class="n">lon_col</span><span class="o">=</span><span class="n">lon_col</span><span class="p">,</span>
+                               <span class="n">invert_size</span><span class="o">=</span><span class="n">invert_size</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="plot_latest_rainfall_and_level">
+<a class="viewcode-back" href="../../../index.html#flood_tool.visualization.mapping.plot_latest_rainfall_and_level">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">plot_latest_rainfall_and_level</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">lat_col</span><span class="o">=</span><span class="s2">&quot;latitude&quot;</span><span class="p">,</span> <span class="n">lon_col</span><span class="o">=</span><span class="s2">&quot;longitude&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plot the latest rainfall and river level measurements for each station</span>
+<span class="sd">    on the same map, with separate color scales.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    df : pd.DataFrame</span>
+<span class="sd">        Dataset containing columns: stationReference, dateTime, parameter,</span>
+<span class="sd">        value, latitude, longitude.</span>
+<span class="sd">    lat_col, lon_col : str</span>
+<span class="sd">        Column names for latitude and longitude.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Folium map object</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">df</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;dateTime&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;dateTime&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+    <span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_numeric</span><span class="p">(</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">],</span> <span class="n">errors</span><span class="o">=</span><span class="s2">&quot;coerce&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Initialize map</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="mf">51.</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">zoom_start</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
+
+    <span class="c1"># Define parameters and their colormaps</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;rainfall&quot;</span><span class="p">:</span> <span class="n">cm</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">YlOrRd_09</span><span class="p">,</span>
+        <span class="s2">&quot;level&quot;</span><span class="p">:</span> <span class="n">cm</span><span class="o">.</span><span class="n">linear</span><span class="o">.</span><span class="n">Blues_09</span>
+    <span class="p">}</span>
+
+    <span class="k">for</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">colormap_class</span> <span class="ow">in</span> <span class="n">params</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="n">df_param</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="n">df</span><span class="p">[</span><span class="s2">&quot;parameter&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="n">parameter</span><span class="p">,</span> <span class="n">case</span><span class="o">=</span><span class="kc">False</span><span class="p">)]</span>
+        <span class="k">if</span> <span class="n">df_param</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Pick latest measurement for each station</span>
+        <span class="n">df_latest</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">df_param</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s2">&quot;dateTime&quot;</span><span class="p">)</span>
+            <span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;stationReference&quot;</span><span class="p">],</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;last&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">df_latest</span> <span class="o">=</span> <span class="n">df_latest</span><span class="o">.</span><span class="n">dropna</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="p">[</span><span class="n">lat_col</span><span class="p">,</span> <span class="n">lon_col</span><span class="p">,</span> <span class="s2">&quot;value&quot;</span><span class="p">])</span>
+
+        <span class="k">if</span> <span class="n">df_latest</span><span class="o">.</span><span class="n">empty</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Colormap based on 5th-95th percentile</span>
+        <span class="n">vmin</span> <span class="o">=</span> <span class="n">df_latest</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.05</span><span class="p">)</span>
+        <span class="n">vmax</span> <span class="o">=</span> <span class="n">df_latest</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">quantile</span><span class="p">(</span><span class="mf">0.95</span><span class="p">)</span>
+        <span class="n">colormap</span> <span class="o">=</span> <span class="n">colormap_class</span><span class="o">.</span><span class="n">scale</span><span class="p">(</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="p">)</span>
+
+        <span class="c1"># Create feature group for toggle</span>
+        <span class="n">fg</span> <span class="o">=</span> <span class="n">folium</span><span class="o">.</span><span class="n">FeatureGroup</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">parameter</span><span class="o">.</span><span class="n">title</span><span class="p">())</span>
+
+        <span class="c1"># Add markers</span>
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df_latest</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
+            <span class="n">color</span> <span class="o">=</span> <span class="n">colormap</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;value&quot;</span><span class="p">])</span>
+            <span class="n">folium</span><span class="o">.</span><span class="n">CircleMarker</span><span class="p">(</span>
+                <span class="n">location</span><span class="o">=</span><span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="n">lat_col</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="n">lon_col</span><span class="p">]],</span>
+                <span class="n">radius</span><span class="o">=</span><span class="mi">6</span><span class="p">,</span>
+                <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+                <span class="n">fill</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">fill_color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+                <span class="n">fill_opacity</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span>
+                <span class="n">popup</span><span class="o">=</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Station:&lt;/b&gt; </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;stationReference&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;</span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s2"> Value:&lt;/b&gt; </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;value&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&lt;br&gt;&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;&lt;b&gt;Time:&lt;/b&gt; </span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;dateTime&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="p">),</span>
+            <span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">fg</span><span class="p">)</span>
+        <span class="n">fg</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+        <span class="n">colormap</span><span class="o">.</span><span class="n">caption</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Latest </span><span class="si">{</span><span class="n">parameter</span><span class="o">.</span><span class="n">title</span><span class="p">()</span><span class="si">}</span><span class="s2"> Value&quot;</span>
+        <span class="n">colormap</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="c1"># Add layer control to toggle layers</span>
+    <span class="n">folium</span><span class="o">.</span><span class="n">LayerControl</span><span class="p">(</span><span class="n">collapsed</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span><span class="o">.</span><span class="n">add_to</span><span class="p">(</span><span class="n">m</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">m</span></div>
+
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Flood Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">Regression and Classification models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../coordinates.html">Distance Measuring &amp; Geodetic Transformations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../visualization.html">Visualising HistoricFlooding &amp; FloodRisk with Local Authority</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, n/a.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

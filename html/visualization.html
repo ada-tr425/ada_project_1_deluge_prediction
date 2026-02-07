@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Visualising HistoricFlooding &amp; FloodRisk with Local Authority &#8212; Flood Tool 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <script src="_static/documentation_options.js?v=cb975c41"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Distance Measuring &amp; Geodetic Transformations" href="coordinates.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="visualising-historicflooding-floodrisk-with-local-authority">
+<h1>Visualising HistoricFlooding &amp; FloodRisk with Local Authority<a class="headerlink" href="#visualising-historicflooding-floodrisk-with-local-authority" title="Link to this heading">¶</a></h1>
+<p>This module provides helper functions for visualising flood-related data
+using Folium. It <strong>does not</strong> train any models. Instead, it expects you to
+pass in data (for example, a <code class="xref py py-class docutils literal notranslate"><span class="pre">pandas.DataFrame</span></code> with latitude, longitude,
+and model predictions).</p>
+<p>Typical usage is from <code class="docutils literal notranslate"><span class="pre">analysis.py</span></code> or directly in a Jupyter notebook.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>The examples below assume the module is available as
+<code class="docutils literal notranslate"><span class="pre">flood_tool.visualisation.mapping</span></code>. If your path is different,
+update the import lines accordingly.</p>
+</div>
+<section id="quick-start">
+<h2>Quick start<a class="headerlink" href="#quick-start" title="Link to this heading">¶</a></h2>
+<p>Base map from a single point:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">flood_tool.visualisation</span><span class="w"> </span><span class="kn">import</span> <span class="n">mapping</span> <span class="k">as</span> <span class="n">ftmap</span>
+
+<span class="n">m</span> <span class="o">=</span> <span class="n">ftmap</span><span class="o">.</span><span class="n">make_base_map</span><span class="p">(</span><span class="n">centre_lat</span><span class="o">=</span><span class="mf">51.5</span><span class="p">,</span> <span class="n">centre_lon</span><span class="o">=-</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">zoom_start</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">m</span>
+</pre></div>
+</div>
+<p>Base map from a DataFrame with latitude/longitude columns:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">ftmap</span><span class="o">.</span><span class="n">make_interactive_base_map</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">lat_col</span><span class="o">=</span><span class="s2">&quot;latitude&quot;</span><span class="p">,</span> <span class="n">lon_col</span><span class="o">=</span><span class="s2">&quot;longitude&quot;</span><span class="p">)</span>
+<span class="n">m</span>
+</pre></div>
+</div>
+<p>Plot historic flooding for a single postcode:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">ftmap</span><span class="o">.</span><span class="n">plot_historic_flood_for_postcode</span><span class="p">(</span><span class="s2">&quot;BH12 1AA&quot;</span><span class="p">)</span>
+<span class="n">m</span>
+</pre></div>
+</div>
+<p>Plot historic flooding grouped by postcode area (BA, BN, BH, …):</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">ftmap</span><span class="o">.</span><span class="n">plot_flood_by_area</span><span class="p">(</span><span class="n">df_postcodes</span><span class="p">)</span>
+<span class="n">m</span>
+</pre></div>
+</div>
+<p>Overlay latest rainfall data on an existing map:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">ftmap</span><span class="o">.</span><span class="n">plot_flood_by_area</span><span class="p">(</span><span class="n">df_postcodes</span><span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">ftmap</span><span class="o">.</span><span class="n">add_latest_weather_layer</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">df_weather</span><span class="p">,</span> <span class="n">parameter</span><span class="o">=</span><span class="s2">&quot;rainfall&quot;</span><span class="p">)</span>
+<span class="n">m</span>
+</pre></div>
+</div>
+</section>
+<section id="module-reference">
+<h2>Module reference<a class="headerlink" href="#module-reference" title="Link to this heading">¶</a></h2>
+</section>
+<section id="base-map-helpers">
+<h2>Base map helpers<a class="headerlink" href="#base-map-helpers" title="Link to this heading">¶</a></h2>
+</section>
+<section id="make-base-map">
+<h2>make_base_map<a class="headerlink" href="#make-base-map" title="Link to this heading">¶</a></h2>
+</section>
+<section id="make-interactive-base-map">
+<h2>make_interactive_base_map<a class="headerlink" href="#make-interactive-base-map" title="Link to this heading">¶</a></h2>
+</section>
+<section id="make-colour-lookup">
+<h2>_make_colour_lookup<a class="headerlink" href="#make-colour-lookup" title="Link to this heading">¶</a></h2>
+</section>
+<section id="latest-weather-plotting">
+<h2>Latest weather plotting<a class="headerlink" href="#latest-weather-plotting" title="Link to this heading">¶</a></h2>
+</section>
+<section id="plot-latest-weather-data">
+<h2>plot_latest_weather_data<a class="headerlink" href="#plot-latest-weather-data" title="Link to this heading">¶</a></h2>
+</section>
+<section id="add-latest-weather-layer">
+<h2>add_latest_weather_layer<a class="headerlink" href="#add-latest-weather-layer" title="Link to this heading">¶</a></h2>
+</section>
+<section id="historic-flood-classifier-postcode">
+<h2>Historic flood classifier (postcode)<a class="headerlink" href="#historic-flood-classifier-postcode" title="Link to this heading">¶</a></h2>
+</section>
+<section id="plot-historic-flood-for-postcode">
+<h2>plot_historic_flood_for_postcode<a class="headerlink" href="#plot-historic-flood-for-postcode" title="Link to this heading">¶</a></h2>
+</section>
+<section id="plot-flood-by-area">
+<h2>plot_flood_by_area<a class="headerlink" href="#plot-flood-by-area" title="Link to this heading">¶</a></h2>
+</section>
+<section id="local-authority-visualisation">
+<h2>Local authority visualisation<a class="headerlink" href="#local-authority-visualisation" title="Link to this heading">¶</a></h2>
+</section>
+<section id="plot-local-authority-map">
+<h2>plot_local_authority_map<a class="headerlink" href="#plot-local-authority-map" title="Link to this heading">¶</a></h2>
+</section>
+<section id="plot-local-authority-real-shapes">
+<h2>plot_local_authority_real_shapes<a class="headerlink" href="#plot-local-authority-real-shapes" title="Link to this heading">¶</a></h2>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Flood Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="models.html">Regression and Classification models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Distance Measuring &amp; Geodetic Transformations</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Visualising HistoricFlooding &amp; FloodRisk with Local Authority</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#quick-start">Quick start</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#module-reference">Module reference</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#base-map-helpers">Base map helpers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-base-map">make_base_map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-interactive-base-map">make_interactive_base_map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#make-colour-lookup">_make_colour_lookup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#latest-weather-plotting">Latest weather plotting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#plot-latest-weather-data">plot_latest_weather_data</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#add-latest-weather-layer">add_latest_weather_layer</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#historic-flood-classifier-postcode">Historic flood classifier (postcode)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#plot-historic-flood-for-postcode">plot_historic_flood_for_postcode</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#plot-flood-by-area">plot_flood_by_area</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#local-authority-visualisation">Local authority visualisation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#plot-local-authority-map">plot_local_authority_map</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#plot-local-authority-real-shapes">plot_local_authority_real_shapes</a></li>
+</ul>
+</li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="coordinates.html" title="previous chapter">Distance Measuring &amp; Geodetic Transformations</a></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, n/a.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="_sources/visualization.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

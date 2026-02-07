@@ -1,0 +1,17 @@
+Decision threshold: 0.400
+Accuracy: 0.9821
+F1-score (class 1): 0.6190
+
+Confusion matrix:
+[[77403   792]
+ [  641  1164]]
+
+Classification report:
+              precision    recall  f1-score   support
+
+           0       0.99      0.99      0.99     78195
+           1       0.60      0.64      0.62      1805
+
+    accuracy                           0.98     80000
+   macro avg       0.79      0.82      0.80     80000
+weighted avg       0.98      0.98      0.98     80000

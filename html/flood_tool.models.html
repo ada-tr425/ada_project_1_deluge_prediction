@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>flood_tool.models package &#8212; Flood Tool 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <script src="_static/documentation_options.js?v=cb975c41"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="flood-tool-models-package">
+<h1>flood_tool.models package<a class="headerlink" href="#flood-tool-models-package" title="Link to this heading">¶</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">¶</a></h2>
+</section>
+<section id="module-flood_tool.models.adapt_example_missing_data">
+<span id="flood-tool-models-adapt-example-missing-data-module"></span><h2>flood_tool.models.adapt_example_missing_data module<a class="headerlink" href="#module-flood_tool.models.adapt_example_missing_data" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.models.adapt_example_missing_data.main">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.models.adapt_example_missing_data.</span></span><span class="sig-name descname"><span class="pre">main</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/adapt_example_missing_data.html#main"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.adapt_example_missing_data.main" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-flood_tool.models.baseline">
+<span id="flood-tool-models-baseline-module"></span><h2>flood_tool.models.baseline module<a class="headerlink" href="#module-flood_tool.models.baseline" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllEnglandMedianPriceModel">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.baseline.</span></span><span class="sig-name descname"><span class="pre">AllEnglandMedianPriceModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllEnglandMedianPriceModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllEnglandMedianPriceModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllEnglandMedianPriceModel.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllEnglandMedianPriceModel.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllEnglandMedianPriceModel.fit" title="Link to this definition">¶</a></dt>
+<dd><p>No training required for this baseline model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllEnglandMedianPriceModel.predict_from_postcodes">
+<span class="sig-name descname"><span class="pre">predict_from_postcodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">postcodes</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllEnglandMedianPriceModel.predict_from_postcodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllEnglandMedianPriceModel.predict_from_postcodes" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllFalseModel">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.baseline.</span></span><span class="sig-name descname"><span class="pre">AllFalseModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllFalseModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllFalseModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllFalseModel.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllFalseModel.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllFalseModel.fit" title="Link to this definition">¶</a></dt>
+<dd><p>No training required for this baseline model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllFalseModel.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllFalseModel.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllFalseModel.predict" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllMinimumRiskModel">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.baseline.</span></span><span class="sig-name descname"><span class="pre">AllMinimumRiskModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllMinimumRiskModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllMinimumRiskModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllMinimumRiskModel.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllMinimumRiskModel.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllMinimumRiskModel.fit" title="Link to this definition">¶</a></dt>
+<dd><p>No training required for this baseline model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllMinimumRiskModel.predict_from_locations">
+<span class="sig-name descname"><span class="pre">predict_from_locations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllMinimumRiskModel.predict_from_locations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllMinimumRiskModel.predict_from_locations" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.AllMinimumRiskModel.predict_from_postcodes">
+<span class="sig-name descname"><span class="pre">predict_from_postcodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">postcodes</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#AllMinimumRiskModel.predict_from_postcodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.AllMinimumRiskModel.predict_from_postcodes" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.ModalLocalAuthorityModel">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.baseline.</span></span><span class="sig-name descname"><span class="pre">ModalLocalAuthorityModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#ModalLocalAuthorityModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.ModalLocalAuthorityModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.ModalLocalAuthorityModel.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#ModalLocalAuthorityModel.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.ModalLocalAuthorityModel.fit" title="Link to this definition">¶</a></dt>
+<dd><p>Determine the modal Local Authority for the training data.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.ModalLocalAuthorityModel.predict_from_location">
+<span class="sig-name descname"><span class="pre">predict_from_location</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">idx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#ModalLocalAuthorityModel.predict_from_location"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.ModalLocalAuthorityModel.predict_from_location" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.RandomBinaryClassifierModel">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.baseline.</span></span><span class="sig-name descname"><span class="pre">RandomBinaryClassifierModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seed</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">12345</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#RandomBinaryClassifierModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.RandomBinaryClassifierModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.RandomBinaryClassifierModel.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#RandomBinaryClassifierModel.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.RandomBinaryClassifierModel.fit" title="Link to this definition">¶</a></dt>
+<dd><p>No training required for this baseline model.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.baseline.RandomBinaryClassifierModel.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/baseline.html#RandomBinaryClassifierModel.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.baseline.RandomBinaryClassifierModel.predict" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-flood_tool.models.historic_flood_classifier">
+<span id="flood-tool-models-historic-flood-classifier-module"></span><h2>flood_tool.models.historic_flood_classifier module<a class="headerlink" href="#module-flood_tool.models.historic_flood_classifier" title="Link to this heading">¶</a></h2>
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.models.historic_flood_classifier.build_historic_rf">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.models.historic_flood_classifier.</span></span><span class="sig-name descname"><span class="pre">build_historic_rf</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#flood_tool.Pipeline" title="sklearn.pipeline.Pipeline"><span class="pre">Pipeline</span></a></span></span><a class="reference internal" href="_modules/flood_tool/models/historic_flood_classifier.html#build_historic_rf"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.historic_flood_classifier.build_historic_rf" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.models.historic_flood_classifier.build_preprocessor">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.models.historic_flood_classifier.</span></span><span class="sig-name descname"><span class="pre">build_preprocessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/historic_flood_classifier.html#build_preprocessor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.historic_flood_classifier.build_preprocessor" title="Link to this definition">¶</a></dt>
+<dd><p>Build preprocessing pipeline for numeric and categorical features.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.models.historic_flood_classifier.load_labelled_data">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.models.historic_flood_classifier.</span></span><span class="sig-name descname"><span class="pre">load_labelled_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/flood_tool/models/historic_flood_classifier.html#load_labelled_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.historic_flood_classifier.load_labelled_data" title="Link to this definition">¶</a></dt>
+<dd><p>Load the imputed labelled postcode data and print basic info.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.models.historic_flood_classifier.predict_postcode">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.models.historic_flood_classifier.</span></span><span class="sig-name descname"><span class="pre">predict_postcode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">postcode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/flood_tool/models/historic_flood_classifier.html#predict_postcode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.historic_flood_classifier.predict_postcode" title="Link to this definition">¶</a></dt>
+<dd><p>Convenience function for demo and visualisation.</p>
+<p>Steps:
+1. Load the full imputed-postcode dataset.
+2. Select the row for the given postcode.
+3. Load the trained model from MODEL_PATH.
+4. Predict historic flooding and probability for this row.</p>
+<p>Returns
+DataFrame with the original columns plus:
+- predictedHistoricFlooded
+- predictedFloodProb  (probability of class 1)</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.models.historic_flood_classifier.train_and_evaluate">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.models.historic_flood_classifier.</span></span><span class="sig-name descname"><span class="pre">train_and_evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/historic_flood_classifier.html#train_and_evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.historic_flood_classifier.train_and_evaluate" title="Link to this definition">¶</a></dt>
+<dd><p>Train a RandomForest classifier with stratified CV,
+print metrics, save a text report, and save the trained model.</p>
+</dd></dl>
+
+</section>
+<section id="module-flood_tool.models.house_prices_models">
+<span id="flood-tool-models-house-prices-models-module"></span><h2>flood_tool.models.house_prices_models module<a class="headerlink" href="#module-flood_tool.models.house_prices_models" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.house_prices_models.HousePricesXGBRegressor">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.house_prices_models.</span></span><span class="sig-name descname"><span class="pre">HousePricesXGBRegressor</span></span><a class="reference internal" href="_modules/flood_tool/models/house_prices_models.html#HousePricesXGBRegressor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.house_prices_models.HousePricesXGBRegressor" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">XGBRegressor</span></code></p>
+<p>An XGBoost regression model to predict house prices at utilizing
+postcode and one of (sector-level or district-level) data.</p>
+<p>Inherits from xgboost’s XGBRegressor.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.house_prices_models.HousePricesXGBRegressor.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Series</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/flood_tool/models/house_prices_models.html#HousePricesXGBRegressor.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.house_prices_models.HousePricesXGBRegressor.fit" title="Link to this definition">¶</a></dt>
+<dd><p>Fit the XGBoost regression model to the merged dataset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>pandas.DataFrame</em>) – The input features for training containing merged postcode,
+and one of (sector-level or district-level) data.</p></li>
+<li><p><strong>y</strong> (<em>pandas.Series</em>) – The target variable representing house prices with log1p
+transformation applied.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The fitted model.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>XGBoost model</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.house_prices_models.HousePricesXGBRegressor.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">postcodes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Series</span></span></span><a class="reference internal" href="_modules/flood_tool/models/house_prices_models.html#HousePricesXGBRegressor.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.house_prices_models.HousePricesXGBRegressor.predict" title="Link to this definition">¶</a></dt>
+<dd><p>Predict house prices for the given input features.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<em>pandas.DataFrame</em>) – The input features for prediction containing merged postcode,
+and sector-level data.</p></li>
+<li><p><strong>postcodes</strong> (<em>array-like</em><em>, </em><em>optional</em>) – The postcodes corresponding to the input features.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A Series containing the predicted house prices, indexed by
+postcodes if provided. Applies an expm1 transformation to
+revert the log1p transformation.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pd.Series</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.house_prices_models.HousePricesXGBRegressor.predict_from_postcodes">
+<span class="sig-name descname"><span class="pre">predict_from_postcodes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">postcodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#flood_tool.Sequence" title="collections.abc.Sequence"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">postcode_pred</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#flood_tool.Sequence" title="collections.abc.Sequence"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">postcode_nan</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#flood_tool.Sequence" title="collections.abc.Sequence"><span class="pre">Sequence</span></a><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Series</span></span></span><a class="reference internal" href="_modules/flood_tool/models/house_prices_models.html#HousePricesXGBRegressor.predict_from_postcodes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.house_prices_models.HousePricesXGBRegressor.predict_from_postcodes" title="Link to this definition">¶</a></dt>
+<dd><p>Predict house prices for a list of postcodes, handling missing data.</p>
+<section id="parameters">
+<h3>Parameters:<a class="headerlink" href="#parameters" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>postcodes<span class="classifier">list[str]</span></dt><dd><p>A list of all postcodes for which predictions are required.</p>
+</dd>
+<dt>postcode_pred<span class="classifier">list[str]</span></dt><dd><p>A list of postcodes that have sector/district data available
+for prediction.</p>
+</dd>
+<dt>postcode_nan<span class="classifier">list[str]</span></dt><dd><p>A list of postcodes that do not have sector/district data
+available.</p>
+</dd>
+<dt>X<span class="classifier">pd.DataFrame</span></dt><dd><p>The input features for prediction containing merged postcode,
+and sector/district-level data.</p>
+</dd>
+</dl>
+</section>
+<section id="returns">
+<h3>Returns:<a class="headerlink" href="#returns" title="Link to this heading">¶</a></h3>
+<dl class="simple">
+<dt>pd.Series</dt><dd><p>A Series containing the predicted house prices for all
+postcodes, with fallback values for those without data.</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.house_prices_models.HousePricesXGBRegressor.set_predict_request">
+<span class="sig-name descname"><span class="pre">set_predict_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">postcodes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'$UNCHANGED$'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#flood_tool.models.house_prices_models.HousePricesXGBRegressor" title="flood_tool.models.house_prices_models.HousePricesXGBRegressor"><span class="pre">HousePricesXGBRegressor</span></a></span></span><a class="headerlink" href="#flood_tool.models.house_prices_models.HousePricesXGBRegressor.set_predict_request" title="Link to this definition">¶</a></dt>
+<dd><p>Configure whether metadata should be requested to be passed to the <code class="docutils literal notranslate"><span class="pre">predict</span></code> method.</p>
+<p>Note that this method is only relevant when this estimator is used as a
+sub-estimator within a <span class="xref std std-term">meta-estimator</span> and metadata routing is enabled
+with <code class="docutils literal notranslate"><span class="pre">enable_metadata_routing=True</span></code> (see <code class="xref py py-func docutils literal notranslate"><span class="pre">sklearn.set_config()</span></code>).
+Please check the <span class="xref std std-ref">User Guide</span> on how the routing
+mechanism works.</p>
+<p>The options for each parameter are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">True</span></code>: metadata is requested, and passed to <code class="docutils literal notranslate"><span class="pre">predict</span></code> if provided. The request is ignored if metadata is not provided.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">False</span></code>: metadata is not requested and the meta-estimator will not pass it to <code class="docutils literal notranslate"><span class="pre">predict</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code>: metadata is not requested, and the meta-estimator will raise an error if the user provides it.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">str</span></code>: metadata should be passed to the meta-estimator with this given alias instead of the original name.</p></li>
+</ul>
+<p>The default (<code class="docutils literal notranslate"><span class="pre">sklearn.utils.metadata_routing.UNCHANGED</span></code>) retains the
+existing request. This allows you to change the request for some
+parameters and not others.</p>
+<div class="versionadded">
+<p><span class="versionmodified added">Added in version 1.3.</span></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>postcodes</strong> (<em>str</em><em>, </em><em>True</em><em>, </em><em>False</em><em>, or </em><em>None</em><em>,                     </em><em>default=sklearn.utils.metadata_routing.UNCHANGED</em>) – Metadata routing for <code class="docutils literal notranslate"><span class="pre">postcodes</span></code> parameter in <code class="docutils literal notranslate"><span class="pre">predict</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>self</strong> – The updated object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.house_prices_models.HousePricesXGBRegressor.set_score_request">
+<span class="sig-name descname"><span class="pre">set_score_request</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_weight</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'$UNCHANGED$'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#flood_tool.models.house_prices_models.HousePricesXGBRegressor" title="flood_tool.models.house_prices_models.HousePricesXGBRegressor"><span class="pre">HousePricesXGBRegressor</span></a></span></span><a class="headerlink" href="#flood_tool.models.house_prices_models.HousePricesXGBRegressor.set_score_request" title="Link to this definition">¶</a></dt>
+<dd><p>Configure whether metadata should be requested to be passed to the <code class="docutils literal notranslate"><span class="pre">score</span></code> method.</p>
+<p>Note that this method is only relevant when this estimator is used as a
+sub-estimator within a <span class="xref std std-term">meta-estimator</span> and metadata routing is enabled
+with <code class="docutils literal notranslate"><span class="pre">enable_metadata_routing=True</span></code> (see <code class="xref py py-func docutils literal notranslate"><span class="pre">sklearn.set_config()</span></code>).
+Please check the <span class="xref std std-ref">User Guide</span> on how the routing
+mechanism works.</p>
+<p>The options for each parameter are:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">True</span></code>: metadata is requested, and passed to <code class="docutils literal notranslate"><span class="pre">score</span></code> if provided. The request is ignored if metadata is not provided.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">False</span></code>: metadata is not requested and the meta-estimator will not pass it to <code class="docutils literal notranslate"><span class="pre">score</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">None</span></code>: metadata is not requested, and the meta-estimator will raise an error if the user provides it.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">str</span></code>: metadata should be passed to the meta-estimator with this given alias instead of the original name.</p></li>
+</ul>
+<p>The default (<code class="docutils literal notranslate"><span class="pre">sklearn.utils.metadata_routing.UNCHANGED</span></code>) retains the
+existing request. This allows you to change the request for some
+parameters and not others.</p>
+<div class="versionadded">
+<p><span class="versionmodified added">Added in version 1.3.</span></p>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sample_weight</strong> (<em>str</em><em>, </em><em>True</em><em>, </em><em>False</em><em>, or </em><em>None</em><em>,                     </em><em>default=sklearn.utils.metadata_routing.UNCHANGED</em>) – Metadata routing for <code class="docutils literal notranslate"><span class="pre">sample_weight</span></code> parameter in <code class="docutils literal notranslate"><span class="pre">score</span></code>.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>self</strong> – The updated object.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>object</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-flood_tool.models.location_models">
+<span id="flood-tool-models-location-models-module"></span><h2>flood_tool.models.location_models module<a class="headerlink" href="#module-flood_tool.models.location_models" title="Link to this heading">¶</a></h2>
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.location_models.KNNFloodRiskModel">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.location_models.</span></span><span class="sig-name descname"><span class="pre">KNNFloodRiskModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_neighbors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/location_models.html#KNNFloodRiskModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.location_models.KNNFloodRiskModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A KNN-based flood risk prediction model.</p>
+<p>Corresponding to the <cite>predict_flood_class_from_OSGB36_location</cite> interface.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.location_models.KNNFloodRiskModel.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Series</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/location_models.html#KNNFloodRiskModel.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.location_models.KNNFloodRiskModel.fit" title="Link to this definition">¶</a></dt>
+<dd><p>X: A DataFrame containing ‘easting’ or ‘northing’</p>
+<p>y: A Series containing risk levels (1-10 or 1-7)</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.location_models.KNNFloodRiskModel.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">locations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/flood_tool/models/location_models.html#KNNFloodRiskModel.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.location_models.KNNFloodRiskModel.predict" title="Link to this definition">¶</a></dt>
+<dd><p>locations: An array of shape (n, 2) with columns [easting, northing]</p>
+<p>Returns: An array of predicted risk values</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.location_models.KNNLocalAuthorityModel">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.location_models.</span></span><span class="sig-name descname"><span class="pre">KNNLocalAuthorityModel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">n_neighbors</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/location_models.html#KNNLocalAuthorityModel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.location_models.KNNLocalAuthorityModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A local authority prediction model based on KNN.
+This corresponds to the predict_local_authority interface.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.location_models.KNNLocalAuthorityModel.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Series</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/location_models.html#KNNLocalAuthorityModel.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.location_models.KNNLocalAuthorityModel.fit" title="Link to this definition">¶</a></dt>
+<dd><p>X: A DataFrame containing ‘easting’ and ‘northing’.
+y: Series containing the name of the local authority</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.location_models.KNNLocalAuthorityModel.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">locations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">ndarray</span></span></span><a class="reference internal" href="_modules/flood_tool/models/location_models.html#KNNLocalAuthorityModel.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.location_models.KNNLocalAuthorityModel.predict" title="Link to this definition">¶</a></dt>
+<dd><p>locations: An array of shape (n, 2) with columns [easting, northing]</p>
+<p>Returns: An array of predicted local authority names</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-flood_tool.models.seven_class_probability">
+<span id="flood-tool-models-seven-class-probability-module"></span><h2>flood_tool.models.seven_class_probability module<a class="headerlink" href="#module-flood_tool.models.seven_class_probability" title="Link to this heading">¶</a></h2>
+<dl class="simple">
+<dt>Seven Class Flood Probability Scale Based on Provided Labelled Samples</dt><dd><ul class="simple">
+<li><p>Kaiqing Deng</p></li>
+</ul>
+</dd>
+<dt>Inputs:</dt><dd><dl class="simple">
+<dt>flood_tool/resources/preprocessed_data/</dt><dd><ul class="simple">
+<li><p>postcodes_impute_postcode_method.csv</p></li>
+<li><p>district_preprocessed.csv.csv</p></li>
+</ul>
+</dd>
+</dl>
+</dd>
+<dt>Steps:</dt><dd><ol class="arabic simple">
+<li><p>Load Raw Data</p></li>
+<li><p>Build Preprocessing Pipeline</p></li>
+<li><p>Create RandomForest (Class_Weight Balanced)</p></li>
+<li><p>Made CV Evaluation and Confusion Matrix</p></li>
+<li><p>Save Model and Loading</p></li>
+<li><p>Output for Visualization Part</p></li>
+</ol>
+</dd>
+</dl>
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_probability.SevenClassProbability">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.seven_class_probability.</span></span><span class="sig-name descname"><span class="pre">SevenClassProbability</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_probability.html#SevenClassProbability"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_probability.SevenClassProbability" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_probability.SevenClassProbability.load">
+<em class="property"><span class="k"><span class="pre">classmethod</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Path</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">PosixPath('/Users/hm/code/acds-deluge-exe/flood_tool/resources/seven_class_probability_classifier.pkl')</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_probability.html#SevenClassProbability.load"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_probability.SevenClassProbability.load" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_probability.SevenClassProbability.predict">
+<span class="sig-name descname"><span class="pre">predict</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_probability.html#SevenClassProbability.predict"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_probability.SevenClassProbability.predict" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_probability.SevenClassProbability.predict_dataframe">
+<span class="sig-name descname"><span class="pre">predict_dataframe</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">return_proba</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_probability.html#SevenClassProbability.predict_dataframe"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_probability.SevenClassProbability.predict_dataframe" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_probability.SevenClassProbability.predict_proba">
+<span class="sig-name descname"><span class="pre">predict_proba</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_probability.html#SevenClassProbability.predict_proba"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_probability.SevenClassProbability.predict_proba" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_probability.build_preprocessor">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.models.seven_class_probability.</span></span><span class="sig-name descname"><span class="pre">build_preprocessor</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_probability.html#build_preprocessor"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_probability.build_preprocessor" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_probability.load_data">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.models.seven_class_probability.</span></span><span class="sig-name descname"><span class="pre">load_data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/flood_tool/models/seven_class_probability.html#load_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_probability.load_data" title="Link to this definition">¶</a></dt>
+<dd><p>Load latest preprocessed training dataset.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_probability.train_and_evaluate">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.models.seven_class_probability.</span></span><span class="sig-name descname"><span class="pre">train_and_evaluate</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cv</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_probability.html#train_and_evaluate"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_probability.train_and_evaluate" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+<section id="module-flood_tool.models.seven_class_tool">
+<span id="flood-tool-models-seven-class-tool-module"></span><h2>flood_tool.models.seven_class_tool module<a class="headerlink" href="#module-flood_tool.models.seven_class_tool" title="Link to this heading">¶</a></h2>
+<p>Seven Class Flood Probability Model (KNN-enhanced for location prediction)
+Based on postcode-level labelled samples</p>
+<blockquote>
+<div><p>– Kaiqing Deng</p>
+</div></blockquote>
+<dl class="simple">
+<dt>This model:</dt><dd><ul class="simple">
+<li><p>Trains a RandomForest classifier on postcode-level and district-level
+features generated by the preprocessing modules.</p></li>
+<li><dl class="simple">
+<dt>Is designed to work with the three high-level data functions in the tool.py:</dt><dd><ol class="arabic simple">
+<li><p>Function predict_flood_class_from_postcode</p></li>
+<li><p>Function predict_flood_class_from_OSGB36_location</p></li>
+<li><p>Function predict_flood_class_from_WGS84_locations</p></li>
+</ol>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+<dl class="py class">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_tool.SevenClassTool">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">flood_tool.models.seven_class_tool.</span></span><span class="sig-name descname"><span class="pre">SevenClassTool</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">label_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'riskLabel'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_tool.html#SevenClassTool"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_tool.SevenClassTool" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>RandomForest-based flood-risk classifier.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_tool.SevenClassTool.fit">
+<span class="sig-name descname"><span class="pre">fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">unit_data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_tool.html#SevenClassTool.fit"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_tool.SevenClassTool.fit" title="Link to this definition">¶</a></dt>
+<dd><p>Train the model using postcode-level labelled samples.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_tool.SevenClassTool.lookup_features_from_location">
+<span class="sig-name descname"><span class="pre">lookup_features_from_location</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_locations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/flood_tool/models/seven_class_tool.html#SevenClassTool.lookup_features_from_location"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_tool.SevenClassTool.lookup_features_from_location" title="Link to this definition">¶</a></dt>
+<dd><p>Map raw location to the nearest postcode.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_tool.SevenClassTool.predict_from_features">
+<span class="sig-name descname"><span class="pre">predict_from_features</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X_raw</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Series</span></span></span><a class="reference internal" href="_modules/flood_tool/models/seven_class_tool.html#SevenClassTool.predict_from_features"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_tool.SevenClassTool.predict_from_features" title="Link to this definition">¶</a></dt>
+<dd><p>Predict flood risk classification from raw feature rows.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="flood_tool.models.seven_class_tool.SevenClassTool.set_reference_data">
+<span class="sig-name descname"><span class="pre">set_reference_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_reference</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/models/seven_class_tool.html#SevenClassTool.set_reference_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.models.seven_class_tool.SevenClassTool.set_reference_data" title="Link to this definition">¶</a></dt>
+<dd><p>Save feature data for KNN.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="module-flood_tool.models">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-flood_tool.models" title="Link to this heading">¶</a></h2>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Flood Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="models.html">Regression and Classification models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Distance Measuring &amp; Geodetic Transformations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visualization.html">Visualising HistoricFlooding &amp; FloodRisk with Local Authority</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, n/a.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="_sources/flood_tool.models.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

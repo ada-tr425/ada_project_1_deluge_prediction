@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>flood_tool.visualization package &#8212; Flood Tool 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=12dfc556" />
+    <script src="_static/documentation_options.js?v=cb975c41"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="flood-tool-visualization-package">
+<h1>flood_tool.visualization package<a class="headerlink" href="#flood-tool-visualization-package" title="Link to this heading">¶</a></h1>
+<section id="submodules">
+<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">¶</a></h2>
+</section>
+<section id="module-flood_tool.visualization.analysis">
+<span id="flood-tool-visualization-analysis-module"></span><h2>flood_tool.visualization.analysis module<a class="headerlink" href="#module-flood_tool.visualization.analysis" title="Link to this heading">¶</a></h2>
+<p>Analysis tools for flood data.</p>
+<p>Functions to visualise and analyse flood risk and weather data.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.analysis.plot_postcode_density">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.analysis.</span></span><span class="sig-name descname"><span class="pre">plot_postcode_density</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="pre">postcodes:</span> <span class="pre">str</span> <span class="pre">|</span> <span class="pre">~pandas.core.frame.DataFrame</span> <span class="pre">=</span>&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">postcode</span>&#160; <span class="pre">easting</span>&#160; <span class="pre">northing</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">soilType</span>&#160; <span class="pre">elevation</span> <span class="pre">nearestWatercourse</span>&#160; <span class="pre">distanceToWatercourse</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">localAuthority</span> <span class="pre">0</span>&#160;&#160;&#160;&#160;&#160; <span class="pre">PO9</span> <span class="pre">5EA</span>&#160;&#160; <span class="pre">472101</span>&#160;&#160;&#160; <span class="pre">108419</span>&#160; <span class="pre">Unsurveyed/Urban</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">40</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">NaN</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1530.0</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Havant</span> <span class="pre">1</span>&#160;&#160;&#160;&#160; <span class="pre">EX15</span> <span class="pre">3XE</span>&#160;&#160; <span class="pre">313905</span>&#160;&#160;&#160; <span class="pre">113519</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Luvisols</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">130</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">River</span> <span class="pre">Culm</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">310.0</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Mid</span> <span class="pre">Devon</span> <span class="pre">2</span>&#160;&#160;&#160;&#160; <span class="pre">PO14</span> <span class="pre">4RJ</span>&#160;&#160; <span class="pre">452325</span>&#160;&#160;&#160; <span class="pre">106646</span>&#160; <span class="pre">Unsurveyed/Urban</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">40</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">NaN</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1270.0</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Fareham</span> <span class="pre">3</span>&#160;&#160;&#160;&#160; <span class="pre">SE24</span> <span class="pre">9UX</span>&#160;&#160; <span class="pre">532008</span>&#160;&#160;&#160; <span class="pre">174437</span>&#160; <span class="pre">Unsurveyed/Urban</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">20</span>&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">River</span> <span class="pre">Thames</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">5290.0</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Lambeth</span> <span class="pre">4</span>&#160;&#160;&#160;&#160; <span class="pre">BS20</span> <span class="pre">9PR</span>&#160;&#160; <span class="pre">346765</span>&#160;&#160;&#160; <span class="pre">176083</span>&#160; <span class="pre">Unsurveyed/Urban</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">10</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">NaN</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">640.0</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">North</span> <span class="pre">Somerset</span> <span class="pre">...</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">...</span>&#160;&#160;&#160;&#160;&#160; <span class="pre">...</span>&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">...</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">...</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">...</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">...</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">...</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">...</span> <span class="pre">9995</span>&#160; <span class="pre">TN22</span> <span class="pre">5HX</span>&#160;&#160; <span class="pre">551700</span>&#160;&#160;&#160; <span class="pre">120200</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Luvisols</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">70</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">NaN</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">560.0</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Wealden</span> <span class="pre">9996</span>&#160;&#160; <span class="pre">RH2</span> <span class="pre">0HH</span>&#160;&#160; <span class="pre">526182</span>&#160;&#160;&#160; <span class="pre">151672</span>&#160; <span class="pre">Unsurveyed/Urban</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">120</span>&#160;&#160;&#160;&#160;&#160; <span class="pre">Redhill</span> <span class="pre">Brook</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">3390.0</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Reigate</span> <span class="pre">and</span> <span class="pre">Banstead</span> <span class="pre">9997</span>&#160;&#160; <span class="pre">OX9</span> <span class="pre">8BE</span>&#160;&#160; <span class="pre">459900</span>&#160;&#160;&#160; <span class="pre">196300</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Luvisols</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">50</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">River</span> <span class="pre">Thame</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">610.0</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">South</span> <span class="pre">Oxfordshire</span> <span class="pre">9998</span>&#160; <span class="pre">EX14</span> <span class="pre">9YT</span>&#160;&#160; <span class="pre">321461</span>&#160;&#160;&#160; <span class="pre">104539</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">Cambisols</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">210</span>&#160;&#160;&#160;&#160;&#160; <span class="pre">Umborne</span> <span class="pre">Brook</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">290.0</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">East</span> <span class="pre">Devon</span> <span class="pre">9999</span>&#160;&#160; <span class="pre">BA1</span> <span class="pre">1WH</span>&#160;&#160; <span class="pre">375350</span>&#160;&#160;&#160; <span class="pre">164483</span>&#160; <span class="pre">Unsurveyed/Urban</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">20</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">River</span> <span class="pre">Avon</span>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160; <span class="pre">1780.0</span>&#160; <span class="pre">Bath</span> <span class="pre">and</span> <span class="pre">North</span> <span class="pre">East</span> <span class="pre">Somerset</span>&#160; <span class="pre">[10000</span> <span class="pre">rows</span> <span class="pre">x</span> <span class="pre">8</span> <span class="pre">columns],</span> <span class="pre">coordinate=['easting',</span> <span class="pre">'northing'],</span> <span class="pre">dx:</span> <span class="pre">float</span> <span class="pre">=</span> <span class="pre">1000.0,</span> <span class="pre">**kwargs</span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/visualization/analysis.html#plot_postcode_density"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.analysis.plot_postcode_density" title="Link to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>plot_postcode_density(postcodes=DEFAULT_POSTCODE_DATA,</dt><dd><dl class="simple">
+<dt>coordinate=[‘easting’, ‘northing’],</dt><dd><p>dx=1000.0, <a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs)</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p>Plot a postcode density map from a postcode file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>postcodese</strong> (<em>str</em><em> or </em><em>pd.DataFrame</em><em>, </em><em>optional</em>) – Path to postcode CSV file or DataFrame containing postcode data.
+Default is DEFAULT_POSTCODE_FILE.</p></li>
+<li><p><strong>coordinate</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – List of two strings specifying the coordinate columns to use.
+Default is [‘easting’, ‘northing’].</p></li>
+<li><p><strong>dx</strong> (<em>float</em><em>, </em><em>optional</em>) – Grid spacing in coordinate units. Default is 1000.</p></li>
+<li><p><strong>kwargs</strong> (<em>dict</em><em>, </em><em>optional</em>) – Additional keyword arguments to pass to matplotlib.pcolormesh.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The Axes object containing the plot.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.axes.Axes</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.analysis.plot_risk_map">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.analysis.</span></span><span class="sig-name descname"><span class="pre">plot_risk_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">risk_data</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">coordinate</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">['easting',</span> <span class="pre">'northing']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/visualization/analysis.html#plot_risk_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.analysis.plot_risk_map" title="Link to this definition">¶</a></dt>
+<dd><p>Plot a risk map.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>risk_data</strong> (<em>pd.DataFrame</em>) – DataFrame containing risk data with coordinate and riskLabel columns.</p></li>
+<li><p><strong>coordinate</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – List of two strings specifying the coordinate columns to use.
+Default is [‘easting’, ‘northing’].</p></li>
+<li><p><strong>dx</strong> (<em>float</em><em>, </em><em>optional</em>) – Grid spacing in coordinate units. Default is 1000.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>The Axes object containing the plot.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>matplotlib.axes.Axes</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-flood_tool.visualization.live">
+<span id="flood-tool-visualization-live-module"></span><h2>flood_tool.visualization.live module<a class="headerlink" href="#module-flood_tool.visualization.live" title="Link to this heading">¶</a></h2>
+<p>Interactions with rainfall and river data from the Environment Agency.</p>
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.live.get_latest_rainfall_readings">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.live.</span></span><span class="sig-name descname"><span class="pre">get_latest_rainfall_readings</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/live.html#get_latest_rainfall_readings"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.live.get_latest_rainfall_readings" title="Link to this definition">¶</a></dt>
+<dd><p>Return last readings for all rainfall stations via live API.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p><ul class="simple">
+<li><p><em>pandas.DataFrame</em> – DataFrame of latest rainfall readings.</p></li>
+<li><p><em>&gt;&gt;&gt; data = get_latest_rainfall_readings()</em></p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.live.get_live_station_data">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.live.</span></span><span class="sig-name descname"><span class="pre">get_live_station_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">station_reference</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">DataFrame</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/live.html#get_live_station_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.live.get_live_station_data" title="Link to this definition">¶</a></dt>
+<dd><p>Return recent readings for a specified recording station from live API.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>station_reference</strong> – station_reference to return.</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="n">get_live_station_data</span><span class="p">(</span><span class="s1">&#39;0184TH&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.live.get_live_weather_data">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.live.</span></span><span class="sig-name descname"><span class="pre">get_live_weather_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">lat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">long</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">current</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">['temperature_2m',</span> <span class="pre">'rain']</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hourly</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">List</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">['temperature_2m',</span> <span class="pre">'relative_humidity_2m',</span> <span class="pre">'rain']</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">DataFrame</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">DataFrame</span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/live.html#get_live_weather_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.live.get_live_weather_data" title="Link to this definition">¶</a></dt>
+<dd><p>Return current and forecast weather data for a specified location
+from live weather forecasting API.</p>
+<p>Uses the Open-Meteo API.</p>
+<p>See <a class="reference external" href="https://open-meteo.com/en/docs">https://open-meteo.com/en/docs</a> for full API documentation.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>lat</strong> – Latitude of location</p></li>
+<li><p><strong>long</strong> – Longitude of location</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">live_data</span><span class="p">,</span> <span class="n">forecast</span> <span class="o">=</span> <span class="n">get_live_weather_data</span><span class="p">(</span><span class="mf">51.5</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.1</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.live.get_station_data_from_file">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.live.</span></span><span class="sig-name descname"><span class="pre">get_station_data_from_file</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">station_reference</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Series</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/live.html#get_station_data_from_file"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.live.get_station_data_from_file" title="Link to this definition">¶</a></dt>
+<dd><p>Return readings for a specified recording station from .csv file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data</strong> (<em>str</em><em> or </em><em>pd.DataFrame</em>) – data to read</p></li>
+<li><p><strong>station_reference</strong> (<em>str</em><em>, </em><em>optional</em>) – station_reference to return.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Series of data values</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.Series</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">SHORT_DATA</span> <span class="o">=</span> <span class="n">WET_DAY_DATA</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="mi">4000</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">data</span> <span class="o">=</span> <span class="n">get_station_data_from_file</span><span class="p">(</span><span class="n">SHORT_DATA</span><span class="p">,</span> <span class="s1">&#39;0184TH&#39;</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.live.get_stations">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.live.</span></span><span class="sig-name descname"><span class="pre">get_stations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">STATION_DATA</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/visualization/live.html#get_stations"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.live.get_stations" title="Link to this definition">¶</a></dt>
+<dd><p>Return a DataFrame of the measurement stations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>data</strong> (<em>str</em><em> or </em><em>pd.DataFrame</em><em>, </em><em>optional</em>) – Data file to to read from</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>DataFrame of the measurement stations.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>pandas.DataFrame</p>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">stations</span> <span class="o">=</span> <span class="n">get_stations</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stations</span><span class="p">[</span><span class="s1">&#39;stationReference&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+<span class="go">0      000008</span>
+<span class="go">1      000028</span>
+<span class="go">2    000075TP</span>
+<span class="go">3    000076TP</span>
+<span class="go">4    000180TP</span>
+<span class="go">Name: stationReference, dtype: object</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+<section id="module-flood_tool.visualization.mapping">
+<span id="flood-tool-visualization-mapping-module"></span><h2>flood_tool.visualization.mapping module<a class="headerlink" href="#module-flood_tool.visualization.mapping" title="Link to this heading">¶</a></h2>
+<p>Mapping utilities for visualising flood models.</p>
+<p>This module is only about <em>visualisation</em>:</p>
+<ul class="simple">
+<li><p>It does NOT train any models.</p></li>
+<li><p>It expects you to pass in data (for example, a DataFrame with
+latitude/longitude and model predictions).</p></li>
+<li><p>Functions here are usually called from <cite>analysis.py</cite> or from
+Jupyter notebooks.</p></li>
+</ul>
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.filtered_plot">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">filtered_plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature2</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'latitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'longitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature1_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature1_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature2_min</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature2_max</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invert_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#filtered_plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.filtered_plot" title="Link to this definition">¶</a></dt>
+<dd><p>Map plotting for two features: color-coded by “riskLabel” and
+optional marker size by “medianPrice”, with optional thresholds.
+The features must be numeric, including categorical labels (e.g. 1, 2, 3).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Must contain latitude and longitude columns.</p></li>
+<li><p><strong>feature1</strong> (<em>str</em>) – A feature to visualise with color.</p></li>
+<li><p><strong>feature2</strong> (<em>str</em><em> or </em><em>None</em>) – An optional feature to visualise with marker size.</p></li>
+<li><p><strong>lat_col</strong> (<em>str</em>) – GPS coordinate column names. Default “latitude”, “longitude”</p></li>
+<li><p><strong>lon_col</strong> (<em>str</em>) – GPS coordinate column names. Default “latitude”, “longitude”</p></li>
+<li><p><strong>feature1_min</strong> (<em>float</em><em> or </em><em>None</em>) – Optional: Min and max threshold for filtering the color
+feature (inclusive).</p></li>
+<li><p><strong>feature1_max</strong> (<em>float</em><em> or </em><em>None</em>) – Optional: Min and max threshold for filtering the color
+feature (inclusive).</p></li>
+<li><p><strong>feature2_min</strong> (<em>float</em><em> or </em><em>None</em>) – Optional: Min and max threshold for filtering the size
+feature (inclusive).</p></li>
+<li><p><strong>feature2_max</strong> (<em>float</em><em> or </em><em>None</em>) – Optional: Min and max threshold for filtering the size
+feature (inclusive).</p></li>
+<li><p><strong>invert_size</strong> (<em>bool</em>) – If True, larger values of feature2 produce smaller markers.
+Useful for visualising e.g. distanceToWatercourse for risk analysis.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Folium map object.</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<p>Plot riskLabel for color, distanceToWatercourse for marker size (inverted),
+for riskLabel &gt; 5, distanceToWatercourse &gt;= 250m:
+&gt;&gt;&gt; filtered_plot(df1, feature1=”riskLabel”,            # doctest: +SKIP</p>
+<blockquote>
+<div><p>feature2=”distanceToWatercourse”,
+feature1_min=6, feature1_max=None,
+feature2_min=None, feature2_max=250, invert_size=True)</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.latest_weather_data">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">latest_weather_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">parameter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'rainfall'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'latitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'longitude'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Map</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#latest_weather_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.latest_weather_data" title="Link to this definition">¶</a></dt>
+<dd><p>Plot the latest rainfall or river level for each station.</p>
+<p>The function:
+- Filters the data for a chosen parameter (e.g. “rainfall” or “level”)
+- Keeps only the most recent reading for each station
+- Colours markers by value using simple quartile-based bins</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Dataset with measurement values and coordinates.
+Must contain:
+- ‘dateTime’
+- ‘value’
+- ‘parameter’
+- ‘stationReference’
+plus latitude/longitude columns.</p></li>
+<li><p><strong>parameter</strong> (<em>str</em><em>, </em><em>default &quot;rainfall&quot;</em>) – Parameter to plot (e.g. “rainfall”, “level”).</p></li>
+<li><p><strong>lat_col</strong> (<em>str</em>) – Column names for latitude and longitude.</p></li>
+<li><p><strong>lon_col</strong> (<em>str</em>) – Column names for latitude and longitude.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A Folium map with one circle marker per station.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>folium.Map</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.make_base_map">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">make_base_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">centre_lat</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">centre_lon</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zoom_start</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">12</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Map</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#make_base_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.make_base_map" title="Link to this definition">¶</a></dt>
+<dd><p>Create a simple Folium map centred on a single point.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>centre_lat</strong> (<em>float</em>) – Centre latitude.</p></li>
+<li><p><strong>centre_lon</strong> (<em>float</em>) – Centre longitude.</p></li>
+<li><p><strong>zoom_start</strong> (<em>int</em><em>, </em><em>default 12</em>) – Initial zoom level.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A basic Folium map with a scale bar.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>folium.Map</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.make_interactive_base_map">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">make_interactive_base_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'latitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'longitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zoom_start</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'55%'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'380px'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Map</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#make_interactive_base_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.make_interactive_base_map" title="Link to this definition">¶</a></dt>
+<dd><p>Create an interactive base map centred on the mean location of a DataFrame.</p>
+<p>The map includes:
+- Fullscreen toggle
+- Mini overview map
+- Distance measurement tool
+- Live mouse coordinates</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Data with latitude and longitude columns.</p></li>
+<li><p><strong>lat_col</strong> (<em>str</em><em>, </em><em>default &quot;latitude&quot;</em><em>, </em><em>&quot;longitude&quot;</em>) – Column names for coordinates.</p></li>
+<li><p><strong>lon_col</strong> (<em>str</em><em>, </em><em>default &quot;latitude&quot;</em><em>, </em><em>&quot;longitude&quot;</em>) – Column names for coordinates.</p></li>
+<li><p><strong>zoom_start</strong> (<em>int</em><em>, </em><em>default 8</em>) – Initial zoom level.</p></li>
+<li><p><strong>width</strong> (<em>str</em>) – Map size as strings understood by Folium (e.g. “55%”, “380px”).</p></li>
+<li><p><strong>height</strong> (<em>str</em>) – Map size as strings understood by Folium (e.g. “55%”, “380px”).</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive base map ready to add layers.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>folium.Map</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.plot_color_size_map">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">plot_color_size_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">size_feature</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'latitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'longitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">invert_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#plot_color_size_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.plot_color_size_map" title="Link to this definition">¶</a></dt>
+<dd><p>Map plotting for two features: color-coded by “feature” and
+optionally marker size by “size_feature”.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Must contain latitude and longitude columns for geographical plotting.</p></li>
+<li><p><strong>feature</strong> (<em>str</em>) – Column to visualise with color.</p></li>
+<li><p><strong>size_feature</strong> (<em>str</em><em> or </em><em>None</em>) – Column to visualise with marker radius. If None, uses fixed size.</p></li>
+<li><p><strong>lat_col</strong> (<em>str</em>) – GPS coordinate column names. Default “latitude” and “longitude”.</p></li>
+<li><p><strong>lon_col</strong> (<em>str</em>) – GPS coordinate column names. Default “latitude” and “longitude”.</p></li>
+<li><p><strong>invert_size</strong> (<em>bool</em>) – If True, larger values of size_feature produce smaller markers.
+Useful for visualising e.g. distanceToWatercourse for risk analysis.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Folium map object.</p>
+</dd>
+</dl>
+<p class="rubric">Example</p>
+<p>Plot riskLabel for color, medianPrice for marker size:
+&gt;&gt;&gt; plot_color_size_map(df, feature=”riskLabel”,    # doctest: +SKIP</p>
+<blockquote>
+<div><p>size_feature=”medianPrice”)</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.plot_combined_flood_and_rain_map">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">plot_combined_flood_and_rain_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_units</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">df_rain</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">la_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'localAuthority'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_name_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'LAD23NM'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">risk_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'riskLabel'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">postcode_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'postcode'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hist_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'historicallyFlooded'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zoom_start</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">7</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rain_parameter</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'rainfall'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rain_lat_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'latitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rain_lon_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'longitude'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Map</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#plot_combined_flood_and_rain_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.plot_combined_flood_and_rain_map" title="Link to this definition">¶</a></dt>
+<dd><p>Combined map with:
+- Local authority polygons
+- Historically flooded postcode points coloured by flood risk
+- Latest rainfall (or level) as a separate toggleable layer</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.plot_flood_by_area">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">plot_flood_by_area</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'latitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'longitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">district_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'postcodeDistrict'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">flood_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'historicallyFlooded'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">areas</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">list</span><span class="p"><span class="pre">[</span></span><span class="pre">str</span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'55%'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'380px'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Map</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#plot_flood_by_area"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.plot_flood_by_area" title="Link to this definition">¶</a></dt>
+<dd><p>Plot historic flooding for all postcode units, grouped by <em>postcode area</em>.</p>
+<p>The postcode area is the leading alphabetic part only, e.g.:
+- “BA” for “BA1 1AA”
+- “BN” for “BN10 7AA”</p>
+<p>Each area becomes its own layer (FeatureGroup) that you can toggle on/off.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Data with postcode, flood labels and coordinates.</p></li>
+<li><p><strong>lat_col</strong> (<em>str</em>) – Column names for latitude and longitude.</p></li>
+<li><p><strong>lon_col</strong> (<em>str</em>) – Column names for latitude and longitude.</p></li>
+<li><p><strong>district_col</strong> (<em>str</em>) – Column containing the postcode district (e.g. “BA1”, “BN10”).</p></li>
+<li><p><strong>flood_col</strong> (<em>str</em>) – Column containing the historic flood label.</p></li>
+<li><p><strong>areas</strong> (<em>list</em><em> of </em><em>str</em><em>, </em><em>optional</em>) – If given, only show these postcode areas (e.g. [“BA”, “BN”]).</p></li>
+<li><p><strong>width</strong> (<em>str</em>) – Map size passed to Folium.</p></li>
+<li><p><strong>height</strong> (<em>str</em>) – Map size passed to Folium.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Interactive map with a layer per postcode area.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>folium.Map</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.plot_historic_flood_for_postcode">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">plot_historic_flood_for_postcode</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">postcode</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'latitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'longitude'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Map</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#plot_historic_flood_for_postcode"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.plot_historic_flood_for_postcode" title="Link to this definition">¶</a></dt>
+<dd><p>Run the historic flood classifier for a single postcode and plot it.</p>
+<p>This uses <cite>predict_postcode(postcode)</cite> from
+<cite>flood_tool.models.historic_flood_classifier</cite> and then shows:</p>
+<ul class="simple">
+<li><p>The true historic flood label</p></li>
+<li><p>The predicted label</p></li>
+<li><p>The predicted probability</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>postcode</strong> (<em>str</em>) – Full postcode string (e.g. “BH12 1AA”).</p></li>
+<li><p><strong>lat_col</strong> (<em>str</em>) – Column names for latitude and longitude in the returned DataFrame.</p></li>
+<li><p><strong>lon_col</strong> (<em>str</em>) – Column names for latitude and longitude in the returned DataFrame.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A small map centred on the postcode with one coloured marker.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>folium.Map</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.plot_latest_rainfall_and_level">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">plot_latest_rainfall_and_level</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'latitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon_col</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'longitude'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#plot_latest_rainfall_and_level"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.plot_latest_rainfall_and_level" title="Link to this definition">¶</a></dt>
+<dd><p>Plot the latest rainfall and river level measurements for each station
+on the same map, with separate color scales.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Dataset containing columns: stationReference, dateTime, parameter,
+value, latitude, longitude.</p></li>
+<li><p><strong>lat_col</strong> (<em>str</em>) – Column names for latitude and longitude.</p></li>
+<li><p><strong>lon_col</strong> (<em>str</em>) – Column names for latitude and longitude.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>Folium map object</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.plot_local_authority_map">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">plot_local_authority_map</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">la_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">easting_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'easting'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">northing_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'northing'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lat_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'latitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">lon_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'longitude'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">width</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'55%'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">height</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'380px'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zoom_start</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">8</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">fmap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Map</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">None</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Map</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#plot_local_authority_map"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.plot_local_authority_map" title="Link to this definition">¶</a></dt>
+<dd><p>Plot local authority information as coloured points.</p>
+<p>This version works directly from a DataFrame (e.g. from a CSV) rather
+than using shapefiles or GeoPackages.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df</strong> (<em>pd.DataFrame</em>) – Data with local authority labels and coordinates.</p></li>
+<li><p><strong>la_col</strong> (<em>str</em>) – Column name containing the local authority label.</p></li>
+<li><p><strong>easting_col</strong> (<em>str</em>) – Kept for reference; not used directly in the map.</p></li>
+<li><p><strong>northing_col</strong> (<em>str</em>) – Kept for reference; not used directly in the map.</p></li>
+<li><p><strong>lat_col</strong> (<em>str</em>) – Column names for latitude and longitude.</p></li>
+<li><p><strong>lon_col</strong> (<em>str</em>) – Column names for latitude and longitude.</p></li>
+<li><p><strong>width</strong> (<em>str</em>) – Map size if a new map is created.</p></li>
+<li><p><strong>height</strong> (<em>str</em>) – Map size if a new map is created.</p></li>
+<li><p><strong>zoom_start</strong> (<em>int</em>) – Zoom level for a new map.</p></li>
+<li><p><strong>fmap</strong> (<em>folium.Map</em><em>, </em><em>optional</em>) – Existing map to add this layer to. If None, a new map is created.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Map with a “Local authority” layer added.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>folium.Map</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="flood_tool.visualization.mapping.plot_local_authority_real_shapes">
+<span class="sig-prename descclassname"><span class="pre">flood_tool.visualization.mapping.</span></span><span class="sig-name descname"><span class="pre">plot_local_authority_real_shapes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">df_units</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">DataFrame</span></span></em>, <em class="sig-param"><span class="keyword-only-separator o"><abbr title="Keyword-only parameters separator (PEP 3102)"><span class="pre">*</span></abbr></span></em>, <em class="sig-param"><span class="n"><span class="pre">la_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'localAuthority'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><span class="pre">Path</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">boundary_name_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'LAD23NM'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">risk_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'riskLabel'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">postcode_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'postcode'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hist_col</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'historicallyFlooded'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zoom_start</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">7</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Map</span></span></span><a class="reference internal" href="_modules/flood_tool/visualization/mapping.html#plot_local_authority_real_shapes"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#flood_tool.visualization.mapping.plot_local_authority_real_shapes" title="Link to this definition">¶</a></dt>
+<dd><p>Plot local authorities using official boundaries and overlay flooded points.</p>
+<ul class="simple">
+<li><p>Local authority polygons come from a GeoPackage (ONS LAD 2023).</p></li>
+<li><p>Only postcodes with historicallyFlooded == 1 are plotted as points.</p></li>
+<li><p>Points are coloured by flood risk.</p></li>
+</ul>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>df_units</strong> (<em>pd.DataFrame</em>) – Model output at postcode level, including:
+- local authority name
+- latitude / longitude
+- risk label
+- historic flood indicator</p></li>
+<li><p><strong>la_col</strong> (<em>str</em><em>, </em><em>default &quot;localAuthority&quot;</em>) – Column name with local authority names in <cite>df_units</cite>.</p></li>
+<li><p><strong>boundary_path</strong> (<em>str</em><em> or </em><em>Path</em>) – Path to the boundary GeoPackage (.gpkg) file.</p></li>
+<li><p><strong>boundary_name_col</strong> (<em>str</em><em>, </em><em>default &quot;LAD23NM&quot;</em>) – Column in the boundary file with local authority names.</p></li>
+<li><p><strong>risk_col</strong> (<em>str</em><em>, </em><em>default &quot;riskLabel&quot;</em>) – Column with flood risk category/score.</p></li>
+<li><p><strong>postcode_col</strong> (<em>str</em><em>, </em><em>default &quot;postcode&quot;</em>) – Column with postcode strings, used in popups.</p></li>
+<li><p><strong>hist_col</strong> (<em>str</em><em>, </em><em>default &quot;historicallyFlooded&quot;</em>) – Column with 0/1 indicator for historic flooding.</p></li>
+<li><p><strong>zoom_start</strong> (<em>int</em><em>, </em><em>default 7</em>) – Initial zoom level.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Map with:
+- a polygon layer for local authorities
+- a point layer for flooded postcodes</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>folium.Map</p>
+</dd>
+</dl>
+</dd></dl>
+
+</section>
+<section id="module-flood_tool.visualization">
+<span id="module-contents"></span><h2>Module contents<a class="headerlink" href="#module-flood_tool.visualization" title="Link to this heading">¶</a></h2>
+</section>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">Flood Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="models.html">Regression and Classification models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="coordinates.html">Distance Measuring &amp; Geodetic Transformations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="visualization.html">Visualising HistoricFlooding &amp; FloodRisk with Local Authority</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, n/a.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+      |
+      <a href="_sources/flood_tool.visualization.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

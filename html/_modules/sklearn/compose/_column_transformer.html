@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sklearn.compose._column_transformer &#8212; Flood Tool 2025 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=03e43079" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/alabaster.css?v=12dfc556" />
+    <script src="../../../_static/documentation_options.js?v=cb975c41"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+   
+  <link rel="stylesheet" href="../../../_static/custom.css" type="text/css" />
+  
+
+  
+  
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <h1>Source code for sklearn.compose._column_transformer</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">The :mod:`sklearn.compose._column_transformer` module implements utilities</span>
+<span class="sd">to work with heterogeneous data and to apply different transformers to</span>
+<span class="sd">different columns.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># Authors: The scikit-learn developers</span>
+<span class="c1"># SPDX-License-Identifier: BSD-3-Clause</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">warnings</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">Counter</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">functools</span><span class="w"> </span><span class="kn">import</span> <span class="n">partial</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">itertools</span><span class="w"> </span><span class="kn">import</span> <span class="n">chain</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">numbers</span><span class="w"> </span><span class="kn">import</span> <span class="n">Integral</span><span class="p">,</span> <span class="n">Real</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">sparse</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">..base</span><span class="w"> </span><span class="kn">import</span> <span class="n">TransformerMixin</span><span class="p">,</span> <span class="n">_fit_context</span><span class="p">,</span> <span class="n">clone</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..pipeline</span><span class="w"> </span><span class="kn">import</span> <span class="n">_fit_transform_one</span><span class="p">,</span> <span class="n">_name_estimators</span><span class="p">,</span> <span class="n">_transform_one</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..preprocessing</span><span class="w"> </span><span class="kn">import</span> <span class="n">FunctionTransformer</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">Bunch</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils._indexing</span><span class="w"> </span><span class="kn">import</span> <span class="n">_determine_key_type</span><span class="p">,</span> <span class="n">_get_column_indices</span><span class="p">,</span> <span class="n">_safe_indexing</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils._metadata_requests</span><span class="w"> </span><span class="kn">import</span> <span class="n">METHODS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils._param_validation</span><span class="w"> </span><span class="kn">import</span> <span class="n">HasMethods</span><span class="p">,</span> <span class="n">Hidden</span><span class="p">,</span> <span class="n">Interval</span><span class="p">,</span> <span class="n">StrOptions</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils._repr_html.estimator</span><span class="w"> </span><span class="kn">import</span> <span class="n">_VisualBlock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils._set_output</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_get_container_adapter</span><span class="p">,</span>
+    <span class="n">_get_output_config</span><span class="p">,</span>
+    <span class="n">_safe_set_output</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils._tags</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_tags</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.metadata_routing</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">MetadataRouter</span><span class="p">,</span>
+    <span class="n">MethodMapping</span><span class="p">,</span>
+    <span class="n">_raise_for_params</span><span class="p">,</span>
+    <span class="n">_routing_enabled</span><span class="p">,</span>
+    <span class="n">process_routing</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.metaestimators</span><span class="w"> </span><span class="kn">import</span> <span class="n">_BaseComposition</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.parallel</span><span class="w"> </span><span class="kn">import</span> <span class="n">Parallel</span><span class="p">,</span> <span class="n">delayed</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">..utils.validation</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">_check_feature_names</span><span class="p">,</span>
+    <span class="n">_check_feature_names_in</span><span class="p">,</span>
+    <span class="n">_check_n_features</span><span class="p">,</span>
+    <span class="n">_get_feature_names</span><span class="p">,</span>
+    <span class="n">_is_pandas_df</span><span class="p">,</span>
+    <span class="n">_num_samples</span><span class="p">,</span>
+    <span class="n">check_array</span><span class="p">,</span>
+    <span class="n">check_is_fitted</span><span class="p">,</span>
+<span class="p">)</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;ColumnTransformer&quot;</span><span class="p">,</span> <span class="s2">&quot;make_column_selector&quot;</span><span class="p">,</span> <span class="s2">&quot;make_column_transformer&quot;</span><span class="p">]</span>
+
+
+<span class="n">_ERR_MSG_1DCOLUMN</span> <span class="o">=</span> <span class="p">(</span>
+    <span class="s2">&quot;1D data passed to a transformer that expects 2D data. &quot;</span>
+    <span class="s2">&quot;Try to specify the column selection as a list of one &quot;</span>
+    <span class="s2">&quot;item instead of a scalar.&quot;</span>
+<span class="p">)</span>
+
+
+<div class="viewcode-block" id="ColumnTransformer">
+<a class="viewcode-back" href="../../../index.html#flood_tool.ColumnTransformer">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">ColumnTransformer</span><span class="p">(</span><span class="n">TransformerMixin</span><span class="p">,</span> <span class="n">_BaseComposition</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Applies transformers to columns of an array or pandas DataFrame.</span>
+
+<span class="sd">    This estimator allows different columns or column subsets of the input</span>
+<span class="sd">    to be transformed separately and the features generated by each transformer</span>
+<span class="sd">    will be concatenated to form a single feature space.</span>
+<span class="sd">    This is useful for heterogeneous or columnar data, to combine several</span>
+<span class="sd">    feature extraction mechanisms or transformations into a single transformer.</span>
+
+<span class="sd">    Read more in the :ref:`User Guide &lt;column_transformer&gt;`.</span>
+
+<span class="sd">    .. versionadded:: 0.20</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    transformers : list of tuples</span>
+<span class="sd">        List of (name, transformer, columns) tuples specifying the</span>
+<span class="sd">        transformer objects to be applied to subsets of the data.</span>
+
+<span class="sd">        name : str</span>
+<span class="sd">            Like in Pipeline and FeatureUnion, this allows the transformer and</span>
+<span class="sd">            its parameters to be set using ``set_params`` and searched in grid</span>
+<span class="sd">            search.</span>
+<span class="sd">        transformer : {&#39;drop&#39;, &#39;passthrough&#39;} or estimator</span>
+<span class="sd">            Estimator must support :term:`fit` and :term:`transform`.</span>
+<span class="sd">            Special-cased strings &#39;drop&#39; and &#39;passthrough&#39; are accepted as</span>
+<span class="sd">            well, to indicate to drop the columns or to pass them through</span>
+<span class="sd">            untransformed, respectively.</span>
+<span class="sd">        columns :  str, array-like of str, int, array-like of int, \</span>
+<span class="sd">                array-like of bool, slice or callable</span>
+<span class="sd">            Indexes the data on its second axis. Integers are interpreted as</span>
+<span class="sd">            positional columns, while strings can reference DataFrame columns</span>
+<span class="sd">            by name.  A scalar string or int should be used where</span>
+<span class="sd">            ``transformer`` expects X to be a 1d array-like (vector),</span>
+<span class="sd">            otherwise a 2d array will be passed to the transformer.</span>
+<span class="sd">            A callable is passed the input data `X` and can return any of the</span>
+<span class="sd">            above. To select multiple columns by name or dtype, you can use</span>
+<span class="sd">            :obj:`make_column_selector`.</span>
+
+<span class="sd">    remainder : {&#39;drop&#39;, &#39;passthrough&#39;} or estimator, default=&#39;drop&#39;</span>
+<span class="sd">        By default, only the specified columns in `transformers` are</span>
+<span class="sd">        transformed and combined in the output, and the non-specified</span>
+<span class="sd">        columns are dropped. (default of ``&#39;drop&#39;``).</span>
+<span class="sd">        By specifying ``remainder=&#39;passthrough&#39;``, all remaining columns that</span>
+<span class="sd">        were not specified in `transformers`, but present in the data passed</span>
+<span class="sd">        to `fit` will be automatically passed through. This subset of columns</span>
+<span class="sd">        is concatenated with the output of the transformers. For dataframes,</span>
+<span class="sd">        extra columns not seen during `fit` will be excluded from the output</span>
+<span class="sd">        of `transform`.</span>
+<span class="sd">        By setting ``remainder`` to be an estimator, the remaining</span>
+<span class="sd">        non-specified columns will use the ``remainder`` estimator. The</span>
+<span class="sd">        estimator must support :term:`fit` and :term:`transform`.</span>
+<span class="sd">        Note that using this feature requires that the DataFrame columns</span>
+<span class="sd">        input at :term:`fit` and :term:`transform` have identical order.</span>
+
+<span class="sd">    sparse_threshold : float, default=0.3</span>
+<span class="sd">        If the output of the different transformers contains sparse matrices,</span>
+<span class="sd">        these will be stacked as a sparse matrix if the overall density is</span>
+<span class="sd">        lower than this value. Use ``sparse_threshold=0`` to always return</span>
+<span class="sd">        dense.  When the transformed output consists of all dense data, the</span>
+<span class="sd">        stacked result will be dense, and this keyword will be ignored.</span>
+
+<span class="sd">    n_jobs : int, default=None</span>
+<span class="sd">        Number of jobs to run in parallel.</span>
+<span class="sd">        ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.</span>
+<span class="sd">        ``-1`` means using all processors. See :term:`Glossary &lt;n_jobs&gt;`</span>
+<span class="sd">        for more details.</span>
+
+<span class="sd">    transformer_weights : dict, default=None</span>
+<span class="sd">        Multiplicative weights for features per transformer. The output of the</span>
+<span class="sd">        transformer is multiplied by these weights. Keys are transformer names,</span>
+<span class="sd">        values the weights.</span>
+
+<span class="sd">    verbose : bool, default=False</span>
+<span class="sd">        If True, the time elapsed while fitting each transformer will be</span>
+<span class="sd">        printed as it is completed.</span>
+
+<span class="sd">    verbose_feature_names_out : bool, str or Callable[[str, str], str], default=True</span>
+
+<span class="sd">        - If True, :meth:`ColumnTransformer.get_feature_names_out` will prefix</span>
+<span class="sd">          all feature names with the name of the transformer that generated that</span>
+<span class="sd">          feature. It is equivalent to setting</span>
+<span class="sd">          `verbose_feature_names_out=&quot;{transformer_name}__{feature_name}&quot;`.</span>
+<span class="sd">        - If False, :meth:`ColumnTransformer.get_feature_names_out` will not</span>
+<span class="sd">          prefix any feature names and will error if feature names are not</span>
+<span class="sd">          unique.</span>
+<span class="sd">        - If ``Callable[[str, str], str]``,</span>
+<span class="sd">          :meth:`ColumnTransformer.get_feature_names_out` will rename all the features</span>
+<span class="sd">          using the name of the transformer. The first argument of the callable is the</span>
+<span class="sd">          transformer name and the second argument is the feature name. The returned</span>
+<span class="sd">          string will be the new feature name.</span>
+<span class="sd">        - If ``str``, it must be a string ready for formatting. The given string will</span>
+<span class="sd">          be formatted using two field names: ``transformer_name`` and ``feature_name``.</span>
+<span class="sd">          e.g. ``&quot;{feature_name}__{transformer_name}&quot;``. See :meth:`str.format` method</span>
+<span class="sd">          from the standard library for more info.</span>
+
+<span class="sd">        .. versionadded:: 1.0</span>
+
+<span class="sd">        .. versionchanged:: 1.6</span>
+<span class="sd">            `verbose_feature_names_out` can be a callable or a string to be formatted.</span>
+
+<span class="sd">    force_int_remainder_cols : bool, default=False</span>
+<span class="sd">        This parameter has no effect.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            If you do not access the list of columns for the remainder columns</span>
+<span class="sd">            in the `transformers_` fitted attribute, you do not need to set</span>
+<span class="sd">            this parameter.</span>
+
+<span class="sd">        .. versionadded:: 1.5</span>
+
+<span class="sd">        .. versionchanged:: 1.7</span>
+<span class="sd">           The default value for `force_int_remainder_cols` will change from</span>
+<span class="sd">           `True` to `False` in version 1.7.</span>
+
+<span class="sd">        .. deprecated:: 1.7</span>
+<span class="sd">           `force_int_remainder_cols` is deprecated and will be removed in 1.9.</span>
+
+<span class="sd">    Attributes</span>
+<span class="sd">    ----------</span>
+<span class="sd">    transformers_ : list</span>
+<span class="sd">        The collection of fitted transformers as tuples of (name,</span>
+<span class="sd">        fitted_transformer, column). `fitted_transformer` can be an estimator,</span>
+<span class="sd">        or `&#39;drop&#39;`; `&#39;passthrough&#39;` is replaced with an equivalent</span>
+<span class="sd">        :class:`~sklearn.preprocessing.FunctionTransformer`. In case there were</span>
+<span class="sd">        no columns selected, this will be the unfitted transformer. If there</span>
+<span class="sd">        are remaining columns, the final element is a tuple of the form:</span>
+<span class="sd">        (&#39;remainder&#39;, transformer, remaining_columns) corresponding to the</span>
+<span class="sd">        ``remainder`` parameter. If there are remaining columns, then</span>
+<span class="sd">        ``len(transformers_)==len(transformers)+1``, otherwise</span>
+<span class="sd">        ``len(transformers_)==len(transformers)``.</span>
+
+<span class="sd">        .. versionadded:: 1.7</span>
+<span class="sd">            The format of the remaining columns now attempts to match that of the other</span>
+<span class="sd">            transformers: if all columns were provided as column names (`str`), the</span>
+<span class="sd">            remaining columns are stored as column names; if all columns were provided</span>
+<span class="sd">            as mask arrays (`bool`), so are the remaining columns; in all other cases</span>
+<span class="sd">            the remaining columns are stored as indices (`int`).</span>
+
+<span class="sd">    named_transformers_ : :class:`~sklearn.utils.Bunch`</span>
+<span class="sd">        Read-only attribute to access any transformer by given name.</span>
+<span class="sd">        Keys are transformer names and values are the fitted transformer</span>
+<span class="sd">        objects.</span>
+
+<span class="sd">    sparse_output_ : bool</span>
+<span class="sd">        Boolean flag indicating whether the output of ``transform`` is a</span>
+<span class="sd">        sparse matrix or a dense numpy array, which depends on the output</span>
+<span class="sd">        of the individual transformers and the `sparse_threshold` keyword.</span>
+
+<span class="sd">    output_indices_ : dict</span>
+<span class="sd">        A dictionary from each transformer name to a slice, where the slice</span>
+<span class="sd">        corresponds to indices in the transformed output. This is useful to</span>
+<span class="sd">        inspect which transformer is responsible for which transformed</span>
+<span class="sd">        feature(s).</span>
+
+<span class="sd">        .. versionadded:: 1.0</span>
+
+<span class="sd">    n_features_in_ : int</span>
+<span class="sd">        Number of features seen during :term:`fit`. Only defined if the</span>
+<span class="sd">        underlying transformers expose such an attribute when fit.</span>
+
+<span class="sd">        .. versionadded:: 0.24</span>
+
+<span class="sd">    feature_names_in_ : ndarray of shape (`n_features_in_`,)</span>
+<span class="sd">        Names of features seen during :term:`fit`. Defined only when `X`</span>
+<span class="sd">        has feature names that are all strings.</span>
+
+<span class="sd">        .. versionadded:: 1.0</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    make_column_transformer : Convenience function for</span>
+<span class="sd">        combining the outputs of multiple transformer objects applied to</span>
+<span class="sd">        column subsets of the original feature space.</span>
+<span class="sd">    make_column_selector : Convenience function for selecting</span>
+<span class="sd">        columns based on datatype or the columns name with a regex pattern.</span>
+
+<span class="sd">    Notes</span>
+<span class="sd">    -----</span>
+<span class="sd">    The order of the columns in the transformed feature matrix follows the</span>
+<span class="sd">    order of how the columns are specified in the `transformers` list.</span>
+<span class="sd">    Columns of the original feature matrix that are not specified are</span>
+<span class="sd">    dropped from the resulting transformed feature matrix, unless specified</span>
+<span class="sd">    in the `passthrough` keyword. Those columns specified with `passthrough`</span>
+<span class="sd">    are added at the right to the output of the transformers.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn.compose import ColumnTransformer</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn.preprocessing import Normalizer</span>
+<span class="sd">    &gt;&gt;&gt; ct = ColumnTransformer(</span>
+<span class="sd">    ...     [(&quot;norm1&quot;, Normalizer(norm=&#39;l1&#39;), [0, 1]),</span>
+<span class="sd">    ...      (&quot;norm2&quot;, Normalizer(norm=&#39;l1&#39;), slice(2, 4))])</span>
+<span class="sd">    &gt;&gt;&gt; X = np.array([[0., 1., 2., 2.],</span>
+<span class="sd">    ...               [1., 1., 0., 1.]])</span>
+<span class="sd">    &gt;&gt;&gt; # Normalizer scales each row of X to unit norm. A separate scaling</span>
+<span class="sd">    &gt;&gt;&gt; # is applied for the two first and two last elements of each</span>
+<span class="sd">    &gt;&gt;&gt; # row independently.</span>
+<span class="sd">    &gt;&gt;&gt; ct.fit_transform(X)</span>
+<span class="sd">    array([[0. , 1. , 0.5, 0.5],</span>
+<span class="sd">           [0.5, 0.5, 0. , 1. ]])</span>
+
+<span class="sd">    :class:`ColumnTransformer` can be configured with a transformer that requires</span>
+<span class="sd">    a 1d array by setting the column to a string:</span>
+
+<span class="sd">    &gt;&gt;&gt; from sklearn.feature_extraction.text import CountVectorizer</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn.preprocessing import MinMaxScaler</span>
+<span class="sd">    &gt;&gt;&gt; import pandas as pd   # doctest: +SKIP</span>
+<span class="sd">    &gt;&gt;&gt; X = pd.DataFrame({</span>
+<span class="sd">    ...     &quot;documents&quot;: [&quot;First item&quot;, &quot;second one here&quot;, &quot;Is this the last?&quot;],</span>
+<span class="sd">    ...     &quot;width&quot;: [3, 4, 5],</span>
+<span class="sd">    ... })  # doctest: +SKIP</span>
+<span class="sd">    &gt;&gt;&gt; # &quot;documents&quot; is a string which configures ColumnTransformer to</span>
+<span class="sd">    &gt;&gt;&gt; # pass the documents column as a 1d array to the CountVectorizer</span>
+<span class="sd">    &gt;&gt;&gt; ct = ColumnTransformer(</span>
+<span class="sd">    ...     [(&quot;text_preprocess&quot;, CountVectorizer(), &quot;documents&quot;),</span>
+<span class="sd">    ...      (&quot;num_preprocess&quot;, MinMaxScaler(), [&quot;width&quot;])])</span>
+<span class="sd">    &gt;&gt;&gt; X_trans = ct.fit_transform(X)  # doctest: +SKIP</span>
+
+<span class="sd">    For a more detailed example of usage, see</span>
+<span class="sd">    :ref:`sphx_glr_auto_examples_compose_plot_column_transformer_mixed_types.py`.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="n">_parameter_constraints</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;transformers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">list</span><span class="p">,</span> <span class="n">Hidden</span><span class="p">(</span><span class="nb">tuple</span><span class="p">)],</span>
+        <span class="s2">&quot;remainder&quot;</span><span class="p">:</span> <span class="p">[</span>
+            <span class="n">StrOptions</span><span class="p">({</span><span class="s2">&quot;drop&quot;</span><span class="p">,</span> <span class="s2">&quot;passthrough&quot;</span><span class="p">}),</span>
+            <span class="n">HasMethods</span><span class="p">([</span><span class="s2">&quot;fit&quot;</span><span class="p">,</span> <span class="s2">&quot;transform&quot;</span><span class="p">]),</span>
+            <span class="n">HasMethods</span><span class="p">([</span><span class="s2">&quot;fit_transform&quot;</span><span class="p">,</span> <span class="s2">&quot;transform&quot;</span><span class="p">]),</span>
+        <span class="p">],</span>
+        <span class="s2">&quot;sparse_threshold&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">Interval</span><span class="p">(</span><span class="n">Real</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">closed</span><span class="o">=</span><span class="s2">&quot;both&quot;</span><span class="p">)],</span>
+        <span class="s2">&quot;n_jobs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">Integral</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="s2">&quot;transformer_weights&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="kc">None</span><span class="p">],</span>
+        <span class="s2">&quot;verbose&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;verbose&quot;</span><span class="p">],</span>
+        <span class="s2">&quot;verbose_feature_names_out&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;boolean&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">callable</span><span class="p">],</span>
+        <span class="s2">&quot;force_int_remainder_cols&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;boolean&quot;</span><span class="p">,</span> <span class="n">Hidden</span><span class="p">(</span><span class="n">StrOptions</span><span class="p">({</span><span class="s2">&quot;deprecated&quot;</span><span class="p">}))],</span>
+    <span class="p">}</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">transformers</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">remainder</span><span class="o">=</span><span class="s2">&quot;drop&quot;</span><span class="p">,</span>
+        <span class="n">sparse_threshold</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+        <span class="n">n_jobs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">transformer_weights</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">verbose_feature_names_out</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">force_int_remainder_cols</span><span class="o">=</span><span class="s2">&quot;deprecated&quot;</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span> <span class="o">=</span> <span class="n">transformers</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span> <span class="o">=</span> <span class="n">remainder</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sparse_threshold</span> <span class="o">=</span> <span class="n">sparse_threshold</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span> <span class="o">=</span> <span class="n">n_jobs</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transformer_weights</span> <span class="o">=</span> <span class="n">transformer_weights</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">verbose_feature_names_out</span> <span class="o">=</span> <span class="n">verbose_feature_names_out</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">force_int_remainder_cols</span> <span class="o">=</span> <span class="n">force_int_remainder_cols</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_transformers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Internal list of transformer only containing the name and</span>
+<span class="sd">        transformers, dropping the columns.</span>
+
+<span class="sd">        DO NOT USE: This is for the implementation of get_params via</span>
+<span class="sd">        BaseComposition._get_params which expects lists of tuples of len 2.</span>
+
+<span class="sd">        To iterate through the transformers, use ``self._iter`` instead.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[(</span><span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">]</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span>
+
+    <span class="nd">@_transformers</span><span class="o">.</span><span class="n">setter</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">_transformers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;DO NOT USE: This is for the implementation of set_params via</span>
+<span class="sd">        BaseComposition._get_params which gives lists of tuples of len 2.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">col</span><span class="p">)</span>
+                <span class="k">for</span> <span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">),</span> <span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">col</span><span class="p">))</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">)</span>
+            <span class="p">]</span>
+        <span class="k">except</span> <span class="p">(</span><span class="ne">TypeError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span> <span class="o">=</span> <span class="n">value</span>
+
+<div class="viewcode-block" id="ColumnTransformer.set_output">
+<a class="viewcode-back" href="../../../index.html#flood_tool.ColumnTransformer.set_output">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the output container when `&quot;transform&quot;` and `&quot;fit_transform&quot;` are called.</span>
+
+<span class="sd">        Calling `set_output` will set the output of all estimators in `transformers`</span>
+<span class="sd">        and `transformers_`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        transform : {&quot;default&quot;, &quot;pandas&quot;, &quot;polars&quot;}, default=None</span>
+<span class="sd">            Configure output of `transform` and `fit_transform`.</span>
+
+<span class="sd">            - `&quot;default&quot;`: Default output format of a transformer</span>
+<span class="sd">            - `&quot;pandas&quot;`: DataFrame output</span>
+<span class="sd">            - `&quot;polars&quot;`: Polars output</span>
+<span class="sd">            - `None`: Transform configuration is unchanged</span>
+
+<span class="sd">            .. versionadded:: 1.4</span>
+<span class="sd">                `&quot;polars&quot;` option was added.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        self : estimator instance</span>
+<span class="sd">            Estimator instance.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">set_output</span><span class="p">(</span><span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+
+        <span class="n">transformers</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">trans</span>
+            <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">chain</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">,</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;transformers_&quot;</span><span class="p">,</span> <span class="p">[])</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">trans</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;passthrough&quot;</span><span class="p">,</span> <span class="s2">&quot;drop&quot;</span><span class="p">}</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">trans</span> <span class="ow">in</span> <span class="n">transformers</span><span class="p">:</span>
+            <span class="n">_safe_set_output</span><span class="p">(</span><span class="n">trans</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;passthrough&quot;</span><span class="p">,</span> <span class="s2">&quot;drop&quot;</span><span class="p">}:</span>
+            <span class="n">_safe_set_output</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remainder</span><span class="p">,</span> <span class="n">transform</span><span class="o">=</span><span class="n">transform</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="ColumnTransformer.get_params">
+<a class="viewcode-back" href="../../../index.html#flood_tool.ColumnTransformer.get_params">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get parameters for this estimator.</span>
+
+<span class="sd">        Returns the parameters given in the constructor as well as the</span>
+<span class="sd">        estimators contained within the `transformers` of the</span>
+<span class="sd">        `ColumnTransformer`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        deep : bool, default=True</span>
+<span class="sd">            If True, will return the parameters for this estimator and</span>
+<span class="sd">            contained subobjects that are estimators.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        params : dict</span>
+<span class="sd">            Parameter names mapped to their values.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_params</span><span class="p">(</span><span class="s2">&quot;_transformers&quot;</span><span class="p">,</span> <span class="n">deep</span><span class="o">=</span><span class="n">deep</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ColumnTransformer.set_params">
+<a class="viewcode-back" href="../../../index.html#flood_tool.ColumnTransformer.set_params">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">set_params</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the parameters of this estimator.</span>
+
+<span class="sd">        Valid parameter keys can be listed with ``get_params()``. Note that you</span>
+<span class="sd">        can directly set the parameters of the estimators contained in</span>
+<span class="sd">        `transformers` of `ColumnTransformer`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        **kwargs : dict</span>
+<span class="sd">            Estimator parameters.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        self : ColumnTransformer</span>
+<span class="sd">            This estimator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_set_params</span><span class="p">(</span><span class="s2">&quot;_transformers&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_iter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fitted</span><span class="p">,</span> <span class="n">column_as_labels</span><span class="p">,</span> <span class="n">skip_drop</span><span class="p">,</span> <span class="n">skip_empty_columns</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Generate (name, trans, columns, weight) tuples.</span>
+
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        fitted : bool</span>
+<span class="sd">            If True, use the fitted transformers (``self.transformers_``) to</span>
+<span class="sd">            iterate through transformers, else use the transformers passed by</span>
+<span class="sd">            the user (``self.transformers``).</span>
+
+<span class="sd">        column_as_labels : bool</span>
+<span class="sd">            If True, columns are returned as string labels. If False, columns</span>
+<span class="sd">            are returned as they were given by the user. This can only be True</span>
+<span class="sd">            if the ``ColumnTransformer`` is already fitted.</span>
+
+<span class="sd">        skip_drop : bool</span>
+<span class="sd">            If True, &#39;drop&#39; transformers are filtered out.</span>
+
+<span class="sd">        skip_empty_columns : bool</span>
+<span class="sd">            If True, transformers with empty selected columns are filtered out.</span>
+
+<span class="sd">        Yields</span>
+<span class="sd">        ------</span>
+<span class="sd">        A generator of tuples containing:</span>
+<span class="sd">            - name : the name of the transformer</span>
+<span class="sd">            - transformer : the transformer object</span>
+<span class="sd">            - columns : the columns for that transformer</span>
+<span class="sd">            - weight : the weight of the transformer</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">fitted</span><span class="p">:</span>
+            <span class="n">transformers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers_</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># interleave the validated column specifiers</span>
+            <span class="n">transformers</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">column</span><span class="p">)</span>
+                <span class="k">for</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">_</span><span class="p">),</span> <span class="n">column</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_columns</span><span class="p">)</span>
+            <span class="p">]</span>
+            <span class="c1"># add transformer tuple for remainder</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remainder</span><span class="p">[</span><span class="mi">2</span><span class="p">]:</span>
+                <span class="n">transformers</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="n">transformers</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_remainder</span><span class="p">])</span>
+
+        <span class="n">get_weight</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transformer_weights</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">columns</span> <span class="ow">in</span> <span class="n">transformers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">skip_drop</span> <span class="ow">and</span> <span class="n">trans</span> <span class="o">==</span> <span class="s2">&quot;drop&quot;</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="n">skip_empty_columns</span> <span class="ow">and</span> <span class="n">_is_empty_column_selection</span><span class="p">(</span><span class="n">columns</span><span class="p">):</span>
+                <span class="k">continue</span>
+
+            <span class="k">if</span> <span class="n">column_as_labels</span><span class="p">:</span>
+                <span class="c1"># Convert all columns to using their string labels</span>
+                <span class="n">columns_is_scalar</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">isscalar</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span>
+
+                <span class="n">indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformer_to_input_indices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+                <span class="n">columns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names_in_</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+
+                <span class="k">if</span> <span class="n">columns_is_scalar</span><span class="p">:</span>
+                    <span class="c1"># selection is done with one dimension</span>
+                    <span class="n">columns</span> <span class="o">=</span> <span class="n">columns</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+            <span class="k">yield</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">get_weight</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_transformers</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate names of transformers and the transformers themselves.</span>
+
+<span class="sd">        This checks whether given transformers have the required methods, i.e.</span>
+<span class="sd">        `fit` or `fit_transform` and `transform` implemented.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="n">names</span><span class="p">,</span> <span class="n">transformers</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">)</span>
+
+        <span class="c1"># validate names</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_names</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+
+        <span class="c1"># validate estimators</span>
+        <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">transformers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">t</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;drop&quot;</span><span class="p">,</span> <span class="s2">&quot;passthrough&quot;</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="s2">&quot;fit&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="s2">&quot;fit_transform&quot;</span><span class="p">))</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span>
+                <span class="n">t</span><span class="p">,</span> <span class="s2">&quot;transform&quot;</span>
+            <span class="p">):</span>
+                <span class="c1"># Used to validate the transformers in the `transformers` list</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                    <span class="s2">&quot;All estimators should implement fit and &quot;</span>
+                    <span class="s2">&quot;transform, or can be &#39;drop&#39; or &#39;passthrough&#39; &quot;</span>
+                    <span class="s2">&quot;specifiers. &#39;</span><span class="si">%s</span><span class="s2">&#39; (type </span><span class="si">%s</span><span class="s2">) doesn&#39;t.&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">t</span><span class="p">,</span> <span class="nb">type</span><span class="p">(</span><span class="n">t</span><span class="p">))</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_column_callables</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Converts callable column specifications.</span>
+
+<span class="sd">        This stores a dictionary of the form `{step_name: column_indices}` and</span>
+<span class="sd">        calls the `columns` on `X` if `columns` is a callable for a given</span>
+<span class="sd">        transformer.</span>
+
+<span class="sd">        The results are then stored in `self._transformer_to_input_indices`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">all_columns</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="n">transformer_to_input_indices</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">columns</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="n">columns</span><span class="p">):</span>
+                <span class="n">columns</span> <span class="o">=</span> <span class="n">columns</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+            <span class="n">all_columns</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">columns</span><span class="p">)</span>
+            <span class="n">transformer_to_input_indices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_get_column_indices</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">columns</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_columns</span> <span class="o">=</span> <span class="n">all_columns</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_transformer_to_input_indices</span> <span class="o">=</span> <span class="n">transformer_to_input_indices</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_remainder</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validates ``remainder`` and defines ``_remainder`` targeting</span>
+<span class="sd">        the remaining columns.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">_transformer_to_input_indices</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+        <span class="n">remaining</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_features_in_</span><span class="p">))</span> <span class="o">-</span> <span class="n">cols</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_transformer_to_input_indices</span><span class="p">[</span><span class="s2">&quot;remainder&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">remaining</span>
+        <span class="n">remainder_cols</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_remainder_cols</span><span class="p">(</span><span class="n">remaining</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_remainder</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;remainder&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span><span class="p">,</span> <span class="n">remainder_cols</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_remainder_cols_dtype</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">all_dtypes</span> <span class="o">=</span> <span class="p">{</span><span class="n">_determine_key_type</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="p">(</span><span class="o">*</span><span class="n">_</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">}</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">all_dtypes</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="k">return</span> <span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">all_dtypes</span><span class="p">))</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="c1"># _determine_key_type raises a ValueError if some transformer</span>
+            <span class="c1"># columns are Callables</span>
+            <span class="k">return</span> <span class="s2">&quot;int&quot;</span>
+        <span class="k">return</span> <span class="s2">&quot;int&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_remainder_cols</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_remainder_cols_dtype</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="s2">&quot;str&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_names_in_</span><span class="p">[</span><span class="n">indices</span><span class="p">])</span>
+        <span class="k">if</span> <span class="n">dtype</span> <span class="o">==</span> <span class="s2">&quot;bool&quot;</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_features_in_</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">indices</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">named_transformers_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Access the fitted transformer by name.</span>
+
+<span class="sd">        Read-only attribute to access any transformer by given name.</span>
+<span class="sd">        Keys are transformer names and values are the fitted transformer</span>
+<span class="sd">        objects.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Use Bunch object to improve autocomplete</span>
+        <span class="k">return</span> <span class="n">Bunch</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">trans</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers_</span><span class="p">})</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_feature_name_out_for_transformer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">feature_names_in</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Gets feature names of transformer.</span>
+
+<span class="sd">        Used in conjunction with self._iter(fitted=True) in get_feature_names_out.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">column_indices</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformer_to_input_indices</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="n">feature_names_in</span><span class="p">[</span><span class="n">column_indices</span><span class="p">]</span>
+        <span class="c1"># An actual transformer</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">trans</span><span class="p">,</span> <span class="s2">&quot;get_feature_names_out&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">AttributeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Transformer </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> (type </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">trans</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">) does &quot;</span>
+                <span class="s2">&quot;not provide get_feature_names_out.&quot;</span>
+            <span class="p">)</span>
+        <span class="k">return</span> <span class="n">trans</span><span class="o">.</span><span class="n">get_feature_names_out</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+
+<div class="viewcode-block" id="ColumnTransformer.get_feature_names_out">
+<a class="viewcode-back" href="../../../index.html#flood_tool.ColumnTransformer.get_feature_names_out">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_feature_names_out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_features</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get output feature names for transformation.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        input_features : array-like of str or None, default=None</span>
+<span class="sd">            Input features.</span>
+
+<span class="sd">            - If `input_features` is `None`, then `feature_names_in_` is</span>
+<span class="sd">              used as feature names in. If `feature_names_in_` is not defined,</span>
+<span class="sd">              then the following input feature names are generated:</span>
+<span class="sd">              `[&quot;x0&quot;, &quot;x1&quot;, ..., &quot;x(n_features_in_ - 1)&quot;]`.</span>
+<span class="sd">            - If `input_features` is an array-like, then `input_features` must</span>
+<span class="sd">              match `feature_names_in_` if `feature_names_in_` is defined.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        feature_names_out : ndarray of str objects</span>
+<span class="sd">            Transformed feature names.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">check_is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">input_features</span> <span class="o">=</span> <span class="n">_check_feature_names_in</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">input_features</span><span class="p">)</span>
+
+        <span class="c1"># List of tuples (name, feature_names_out)</span>
+        <span class="n">transformer_with_feature_names_out</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="o">*</span><span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter</span><span class="p">(</span>
+            <span class="n">fitted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">column_as_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">skip_empty_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="n">skip_drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="n">feature_names_out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_feature_name_out_for_transformer</span><span class="p">(</span>
+                <span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">input_features</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">feature_names_out</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">continue</span>
+            <span class="n">transformer_with_feature_names_out</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">feature_names_out</span><span class="p">))</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">transformer_with_feature_names_out</span><span class="p">:</span>
+            <span class="c1"># No feature names</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_prefix_for_feature_names_out</span><span class="p">(</span>
+            <span class="n">transformer_with_feature_names_out</span>
+        <span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_add_prefix_for_feature_names_out</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transformer_with_feature_names_out</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add prefix for feature names out that includes the transformer names.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        transformer_with_feature_names_out : list of tuples of (str, array-like of str)</span>
+<span class="sd">            The tuple consistent of the transformer&#39;s name and its feature names out.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        feature_names_out : ndarray of shape (n_features,), dtype=str</span>
+<span class="sd">            Transformed feature names.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">feature_names_out_callable</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose_feature_names_out</span><span class="p">):</span>
+            <span class="n">feature_names_out_callable</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose_feature_names_out</span>
+        <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose_feature_names_out</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+            <span class="n">feature_names_out_callable</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
+                <span class="n">_feature_names_out_with_str_format</span><span class="p">,</span>
+                <span class="n">str_format</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose_feature_names_out</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose_feature_names_out</span> <span class="ow">is</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="n">feature_names_out_callable</span> <span class="o">=</span> <span class="n">partial</span><span class="p">(</span>
+                <span class="n">_feature_names_out_with_str_format</span><span class="p">,</span>
+                <span class="n">str_format</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">{transformer_name}</span><span class="s2">__</span><span class="si">{feature_name}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">feature_names_out_callable</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Prefix the feature names out with the transformers name</span>
+            <span class="n">names</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+                <span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span>
+                    <span class="p">(</span><span class="n">feature_names_out_callable</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">feature_names_out</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">feature_names_out</span> <span class="ow">in</span> <span class="n">transformer_with_feature_names_out</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+
+        <span class="c1"># verbose_feature_names_out is False</span>
+        <span class="c1"># Check that names are all unique without a prefix</span>
+        <span class="n">feature_names_count</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span>
+            <span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">s</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">transformer_with_feature_names_out</span><span class="p">)</span>
+        <span class="p">)</span>
+        <span class="n">top_6_overlap</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">name</span> <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">feature_names_count</span><span class="o">.</span><span class="n">most_common</span><span class="p">(</span><span class="mi">6</span><span class="p">)</span> <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span>
+        <span class="p">]</span>
+        <span class="n">top_6_overlap</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">top_6_overlap</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">top_6_overlap</span><span class="p">)</span> <span class="o">==</span> <span class="mi">6</span><span class="p">:</span>
+                <span class="c1"># There are more than 5 overlapping names, we only show the 5</span>
+                <span class="c1"># of the feature names</span>
+                <span class="n">names_repr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">top_6_overlap</span><span class="p">[:</span><span class="mi">5</span><span class="p">])[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="s2">&quot;, ...]&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">names_repr</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">top_6_overlap</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Output feature names: </span><span class="si">{</span><span class="n">names_repr</span><span class="si">}</span><span class="s2"> are not unique. Please set &quot;</span>
+                <span class="s2">&quot;verbose_feature_names_out=True to add prefixes to feature names&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span>
+            <span class="p">[</span><span class="n">name</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">transformer_with_feature_names_out</span><span class="p">],</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_update_fitted_transformers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">transformers</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set self.transformers_ from given transformers.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        transformers : list of estimators</span>
+<span class="sd">            The fitted estimators as the output of</span>
+<span class="sd">            `self._call_func_on_transformers(func=_fit_transform_one, ...)`.</span>
+<span class="sd">            That function doesn&#39;t include &#39;drop&#39; or transformers for which no</span>
+<span class="sd">            column is selected. &#39;drop&#39; is kept as is, and for the no-column</span>
+<span class="sd">            transformers the unfitted transformer is put in</span>
+<span class="sd">            `self.transformers_`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># transformers are fitted; excludes &#39;drop&#39; cases</span>
+        <span class="n">fitted_transformers</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="n">transformers</span><span class="p">)</span>
+        <span class="n">transformers_</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">old</span><span class="p">,</span> <span class="n">column</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter</span><span class="p">(</span>
+            <span class="n">fitted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">column_as_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">skip_drop</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">skip_empty_columns</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="p">):</span>
+            <span class="k">if</span> <span class="n">old</span> <span class="o">==</span> <span class="s2">&quot;drop&quot;</span><span class="p">:</span>
+                <span class="n">trans</span> <span class="o">=</span> <span class="s2">&quot;drop&quot;</span>
+            <span class="k">elif</span> <span class="n">_is_empty_column_selection</span><span class="p">(</span><span class="n">column</span><span class="p">):</span>
+                <span class="n">trans</span> <span class="o">=</span> <span class="n">old</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">trans</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">fitted_transformers</span><span class="p">)</span>
+            <span class="n">transformers_</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">column</span><span class="p">))</span>
+
+        <span class="c1"># sanity check that transformers is exhausted</span>
+        <span class="k">assert</span> <span class="ow">not</span> <span class="nb">list</span><span class="p">(</span><span class="n">fitted_transformers</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">transformers_</span> <span class="o">=</span> <span class="n">transformers_</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_output</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">result</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Ensure that the output of each transformer is 2D. Otherwise</span>
+<span class="sd">        hstack can raise an error or produce incorrect results.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">names</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="n">name</span>
+            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter</span><span class="p">(</span>
+                <span class="n">fitted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">column_as_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">skip_drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">skip_empty_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">]</span>
+        <span class="k">for</span> <span class="n">Xs</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">names</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">Xs</span><span class="p">,</span> <span class="s2">&quot;ndim&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">Xs</span><span class="p">,</span> <span class="s2">&quot;__dataframe__&quot;</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;The output of the &#39;</span><span class="si">{0}</span><span class="s2">&#39; transformer should be 2D (numpy array, &quot;</span>
+                    <span class="s2">&quot;scipy sparse array, dataframe).&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+                <span class="p">)</span>
+        <span class="k">if</span> <span class="n">_get_output_config</span><span class="p">(</span><span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)[</span><span class="s2">&quot;dense&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="s2">&quot;pandas&quot;</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+        <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="k">for</span> <span class="n">Xs</span><span class="p">,</span> <span class="n">name</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">names</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_pandas_df</span><span class="p">(</span><span class="n">Xs</span><span class="p">):</span>
+                <span class="k">continue</span>
+            <span class="k">for</span> <span class="n">col_name</span><span class="p">,</span> <span class="n">dtype</span> <span class="ow">in</span> <span class="n">Xs</span><span class="o">.</span><span class="n">dtypes</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">dtype</span><span class="p">,</span> <span class="s2">&quot;na_value&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">pd</span><span class="o">.</span><span class="n">NA</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">NA</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">[</span><span class="n">col_name</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">class_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;The output of the &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; transformer for column&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; &#39;</span><span class="si">{</span><span class="n">col_name</span><span class="si">}</span><span class="s2">&#39; has dtype </span><span class="si">{</span><span class="n">dtype</span><span class="si">}</span><span class="s2"> and uses pandas.NA to&quot;</span>
+                    <span class="s2">&quot; represent null values. Storing this output in a numpy array&quot;</span>
+                    <span class="s2">&quot; can cause errors in downstream scikit-learn estimators, and&quot;</span>
+                    <span class="s2">&quot; inefficiencies. To avoid this problem you can (i)&quot;</span>
+                    <span class="s2">&quot; store the output in a pandas DataFrame by using&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">class_name</span><span class="si">}</span><span class="s2">.set_output(transform=&#39;pandas&#39;) or (ii) modify&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot; the input data or the &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; transformer to avoid the&quot;</span>
+                    <span class="s2">&quot; presence of pandas.NA (for example by using&quot;</span>
+                    <span class="s2">&quot; pandas.DataFrame.astype).&quot;</span>
+                <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_record_output_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Xs</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Record which transformer produced which column.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">output_indices_</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">transformer_idx</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_iter</span><span class="p">(</span>
+                <span class="n">fitted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">column_as_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">skip_drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">skip_empty_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">n_columns</span> <span class="o">=</span> <span class="n">Xs</span><span class="p">[</span><span class="n">transformer_idx</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">output_indices_</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">idx</span> <span class="o">+</span> <span class="n">n_columns</span><span class="p">)</span>
+            <span class="n">idx</span> <span class="o">+=</span> <span class="n">n_columns</span>
+
+        <span class="c1"># `_iter` only generates transformers that have a non empty</span>
+        <span class="c1"># selection. Here we set empty slices for transformers that</span>
+        <span class="c1"># generate no output, which are safe for indexing</span>
+        <span class="n">all_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">]</span> <span class="o">+</span> <span class="p">[</span><span class="s2">&quot;remainder&quot;</span><span class="p">]</span>
+        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">all_names</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_indices_</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">output_indices_</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_log_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="n">total</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+        <span class="k">return</span> <span class="s2">&quot;(</span><span class="si">%d</span><span class="s2"> of </span><span class="si">%d</span><span class="s2">) Processing </span><span class="si">%s</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">total</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_call_func_on_transformers</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">func</span><span class="p">,</span> <span class="n">column_as_labels</span><span class="p">,</span> <span class="n">routed_params</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Private function to fit and/or transform on demand.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : {array-like, dataframe} of shape (n_samples, n_features)</span>
+<span class="sd">            The data to be used in fit and/or transform.</span>
+
+<span class="sd">        y : array-like of shape (n_samples,)</span>
+<span class="sd">            Targets.</span>
+
+<span class="sd">        func : callable</span>
+<span class="sd">            Function to call, which can be _fit_transform_one or</span>
+<span class="sd">            _transform_one.</span>
+
+<span class="sd">        column_as_labels : bool</span>
+<span class="sd">            Used to iterate through transformers. If True, columns are returned</span>
+<span class="sd">            as strings. If False, columns are returned as they were given by</span>
+<span class="sd">            the user. Can be True only if the ``ColumnTransformer`` is already</span>
+<span class="sd">            fitted.</span>
+
+<span class="sd">        routed_params : dict</span>
+<span class="sd">            The routed parameters as the output from ``process_routing``.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        Return value (transformers and/or transformed X data) depends</span>
+<span class="sd">        on the passed function.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">func</span> <span class="ow">is</span> <span class="n">_fit_transform_one</span><span class="p">:</span>
+            <span class="n">fitted</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># func is _transform_one</span>
+            <span class="n">fitted</span> <span class="o">=</span> <span class="kc">True</span>
+
+        <span class="n">transformers</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_iter</span><span class="p">(</span>
+                <span class="n">fitted</span><span class="o">=</span><span class="n">fitted</span><span class="p">,</span>
+                <span class="n">column_as_labels</span><span class="o">=</span><span class="n">column_as_labels</span><span class="p">,</span>
+                <span class="n">skip_drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">skip_empty_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">)</span>
+        <span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">jobs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">weight</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">transformers</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">func</span> <span class="ow">is</span> <span class="n">_fit_transform_one</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">trans</span> <span class="o">==</span> <span class="s2">&quot;passthrough&quot;</span><span class="p">:</span>
+                        <span class="n">output_config</span> <span class="o">=</span> <span class="n">_get_output_config</span><span class="p">(</span><span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+                        <span class="n">trans</span> <span class="o">=</span> <span class="n">FunctionTransformer</span><span class="p">(</span>
+                            <span class="n">accept_sparse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                            <span class="n">check_inverse</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                            <span class="n">feature_names_out</span><span class="o">=</span><span class="s2">&quot;one-to-one&quot;</span><span class="p">,</span>
+                        <span class="p">)</span><span class="o">.</span><span class="n">set_output</span><span class="p">(</span><span class="n">transform</span><span class="o">=</span><span class="n">output_config</span><span class="p">[</span><span class="s2">&quot;dense&quot;</span><span class="p">])</span>
+
+                    <span class="n">extra_args</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span>
+                        <span class="n">message_clsname</span><span class="o">=</span><span class="s2">&quot;ColumnTransformer&quot;</span><span class="p">,</span>
+                        <span class="n">message</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_log_message</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">idx</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">transformers</span><span class="p">)),</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>  <span class="c1"># func is _transform_one</span>
+                    <span class="n">extra_args</span> <span class="o">=</span> <span class="p">{}</span>
+                <span class="n">jobs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                    <span class="n">delayed</span><span class="p">(</span><span class="n">func</span><span class="p">)(</span>
+                        <span class="n">transformer</span><span class="o">=</span><span class="n">clone</span><span class="p">(</span><span class="n">trans</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">fitted</span> <span class="k">else</span> <span class="n">trans</span><span class="p">,</span>
+                        <span class="n">X</span><span class="o">=</span><span class="n">_safe_indexing</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">columns</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">),</span>
+                        <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span>
+                        <span class="n">weight</span><span class="o">=</span><span class="n">weight</span><span class="p">,</span>
+                        <span class="o">**</span><span class="n">extra_args</span><span class="p">,</span>
+                        <span class="n">params</span><span class="o">=</span><span class="n">routed_params</span><span class="p">[</span><span class="n">name</span><span class="p">],</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+
+            <span class="k">return</span> <span class="n">Parallel</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">)(</span><span class="n">jobs</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;Expected 2D array, got 1D array instead&quot;</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="n">_ERR_MSG_1DCOLUMN</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span>
+
+<div class="viewcode-block" id="ColumnTransformer.fit">
+<a class="viewcode-back" href="../../../index.html#flood_tool.ColumnTransformer.fit">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fit all transformers using X.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : {array-like, dataframe} of shape (n_samples, n_features)</span>
+<span class="sd">            Input data, of which specified subsets are used to fit the</span>
+<span class="sd">            transformers.</span>
+
+<span class="sd">        y : array-like of shape (n_samples,...), default=None</span>
+<span class="sd">            Targets for supervised learning.</span>
+
+<span class="sd">        **params : dict, default=None</span>
+<span class="sd">            Parameters to be passed to the underlying transformers&#39; ``fit`` and</span>
+<span class="sd">            ``transform`` methods.</span>
+
+<span class="sd">            You can only pass this if metadata routing is enabled, which you</span>
+<span class="sd">            can enable using ``sklearn.set_config(enable_metadata_routing=True)``.</span>
+
+<span class="sd">            .. versionadded:: 1.4</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        self : ColumnTransformer</span>
+<span class="sd">            This estimator.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_raise_for_params</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;fit&quot;</span><span class="p">)</span>
+        <span class="c1"># we use fit_transform to make sure to set sparse_output_ (for which we</span>
+        <span class="c1"># need the transformed data) to have consistent output type in predict</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="n">y</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span></div>
+
+
+<div class="viewcode-block" id="ColumnTransformer.fit_transform">
+<a class="viewcode-back" href="../../../index.html#flood_tool.ColumnTransformer.fit_transform">[docs]</a>
+    <span class="nd">@_fit_context</span><span class="p">(</span>
+        <span class="c1"># estimators in ColumnTransformer.transformers are not validated yet</span>
+        <span class="n">prefer_skip_nested_validation</span><span class="o">=</span><span class="kc">False</span>
+    <span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">fit_transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Fit all transformers, transform the data and concatenate results.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : {array-like, dataframe} of shape (n_samples, n_features)</span>
+<span class="sd">            Input data, of which specified subsets are used to fit the</span>
+<span class="sd">            transformers.</span>
+
+<span class="sd">        y : array-like of shape (n_samples,), default=None</span>
+<span class="sd">            Targets for supervised learning.</span>
+
+<span class="sd">        **params : dict, default=None</span>
+<span class="sd">            Parameters to be passed to the underlying transformers&#39; ``fit`` and</span>
+<span class="sd">            ``transform`` methods.</span>
+
+<span class="sd">            You can only pass this if metadata routing is enabled, which you</span>
+<span class="sd">            can enable using ``sklearn.set_config(enable_metadata_routing=True)``.</span>
+
+<span class="sd">            .. versionadded:: 1.4</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        X_t : {array-like, sparse matrix} of \</span>
+<span class="sd">                shape (n_samples, sum_n_components)</span>
+<span class="sd">            Horizontally stacked results of transformers. sum_n_components is the</span>
+<span class="sd">            sum of n_components (output dimension) over transformers. If</span>
+<span class="sd">            any result is a sparse matrix, everything will be converted to</span>
+<span class="sd">            sparse matrices.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_raise_for_params</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;fit_transform&quot;</span><span class="p">)</span>
+        <span class="n">_check_feature_names</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">force_int_remainder_cols</span> <span class="o">!=</span> <span class="s2">&quot;deprecated&quot;</span><span class="p">:</span>
+            <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
+                <span class="s2">&quot;The parameter `force_int_remainder_cols` is deprecated and will be &quot;</span>
+                <span class="s2">&quot;removed in 1.9. It has no effect. Leave it to its default value to &quot;</span>
+                <span class="s2">&quot;avoid this warning.&quot;</span><span class="p">,</span>
+                <span class="ne">FutureWarning</span><span class="p">,</span>
+            <span class="p">)</span>
+
+        <span class="n">X</span> <span class="o">=</span> <span class="n">_check_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="c1"># set n_features_in_ attribute</span>
+        <span class="n">_check_n_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_transformers</span><span class="p">()</span>
+        <span class="n">n_samples</span> <span class="o">=</span> <span class="n">_num_samples</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_column_callables</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_remainder</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">_routing_enabled</span><span class="p">():</span>
+            <span class="n">routed_params</span> <span class="o">=</span> <span class="n">process_routing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;fit_transform&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">routed_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_empty_routing</span><span class="p">()</span>
+
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_call_func_on_transformers</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="n">y</span><span class="p">,</span>
+            <span class="n">_fit_transform_one</span><span class="p">,</span>
+            <span class="n">column_as_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+            <span class="n">routed_params</span><span class="o">=</span><span class="n">routed_params</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">result</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_fitted_transformers</span><span class="p">([])</span>
+            <span class="c1"># All transformers are None</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_samples</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+        <span class="n">Xs</span><span class="p">,</span> <span class="n">transformers</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">result</span><span class="p">)</span>
+
+        <span class="c1"># determine if concatenated output will be sparse or not</span>
+        <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">):</span>
+            <span class="n">nnz</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">nnz</span> <span class="k">if</span> <span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">else</span> <span class="n">X</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">)</span>
+            <span class="n">total</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span>
+                <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">else</span> <span class="n">X</span><span class="o">.</span><span class="n">size</span> <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs</span>
+            <span class="p">)</span>
+            <span class="n">density</span> <span class="o">=</span> <span class="n">nnz</span> <span class="o">/</span> <span class="n">total</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sparse_output_</span> <span class="o">=</span> <span class="n">density</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_threshold</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">sparse_output_</span> <span class="o">=</span> <span class="kc">False</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_update_fitted_transformers</span><span class="p">(</span><span class="n">transformers</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_output</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_record_output_indices</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">Xs</span><span class="p">),</span> <span class="n">n_samples</span><span class="o">=</span><span class="n">n_samples</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="ColumnTransformer.transform">
+<a class="viewcode-back" href="../../../index.html#flood_tool.ColumnTransformer.transform">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">transform</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Transform X separately by each transformer, concatenate results.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X : {array-like, dataframe} of shape (n_samples, n_features)</span>
+<span class="sd">            The data to be transformed by subset.</span>
+
+<span class="sd">        **params : dict, default=None</span>
+<span class="sd">            Parameters to be passed to the underlying transformers&#39; ``transform``</span>
+<span class="sd">            method.</span>
+
+<span class="sd">            You can only pass this if metadata routing is enabled, which you</span>
+<span class="sd">            can enable using ``sklearn.set_config(enable_metadata_routing=True)``.</span>
+
+<span class="sd">            .. versionadded:: 1.4</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        X_t : {array-like, sparse matrix} of \</span>
+<span class="sd">                shape (n_samples, sum_n_components)</span>
+<span class="sd">            Horizontally stacked results of transformers. sum_n_components is the</span>
+<span class="sd">            sum of n_components (output dimension) over transformers. If</span>
+<span class="sd">            any result is a sparse matrix, everything will be converted to</span>
+<span class="sd">            sparse matrices.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">_raise_for_params</span><span class="p">(</span><span class="n">params</span><span class="p">,</span> <span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;transform&quot;</span><span class="p">)</span>
+        <span class="n">check_is_fitted</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">_check_X</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="c1"># If ColumnTransformer is fit using a dataframe, and now a dataframe is</span>
+        <span class="c1"># passed to be transformed, we select columns by name instead. This</span>
+        <span class="c1"># enables the user to pass X at transform time with extra columns which</span>
+        <span class="c1"># were not present in fit time, and the order of the columns doesn&#39;t</span>
+        <span class="c1"># matter.</span>
+        <span class="n">fit_dataframe_and_transform_dataframe</span> <span class="o">=</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;feature_names_in_&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="p">(</span>
+            <span class="n">_is_pandas_df</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">&quot;__dataframe__&quot;</span><span class="p">)</span>
+        <span class="p">)</span>
+
+        <span class="n">n_samples</span> <span class="o">=</span> <span class="n">_num_samples</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+        <span class="n">column_names</span> <span class="o">=</span> <span class="n">_get_feature_names</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">fit_dataframe_and_transform_dataframe</span><span class="p">:</span>
+            <span class="n">named_transformers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">named_transformers_</span>
+            <span class="c1"># check that all names seen in fit are in transform, unless</span>
+            <span class="c1"># they were dropped</span>
+            <span class="n">non_dropped_indices</span> <span class="o">=</span> <span class="p">[</span>
+                <span class="n">ind</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">ind</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_transformer_to_input_indices</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">named_transformers</span> <span class="ow">and</span> <span class="n">named_transformers</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">!=</span> <span class="s2">&quot;drop&quot;</span>
+            <span class="p">]</span>
+
+            <span class="n">all_indices</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="n">non_dropped_indices</span><span class="p">))</span>
+            <span class="n">all_names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">feature_names_in_</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span> <span class="k">for</span> <span class="n">ind</span> <span class="ow">in</span> <span class="n">all_indices</span><span class="p">)</span>
+
+            <span class="n">diff</span> <span class="o">=</span> <span class="n">all_names</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">column_names</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">diff</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;columns are missing: </span><span class="si">{</span><span class="n">diff</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># ndarray was used for fitting or transforming, thus we only</span>
+            <span class="c1"># check that n_features_in_ is consistent</span>
+            <span class="n">_check_n_features</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">reset</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">_routing_enabled</span><span class="p">():</span>
+            <span class="n">routed_params</span> <span class="o">=</span> <span class="n">process_routing</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">params</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">routed_params</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_empty_routing</span><span class="p">()</span>
+
+        <span class="n">Xs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_call_func_on_transformers</span><span class="p">(</span>
+            <span class="n">X</span><span class="p">,</span>
+            <span class="kc">None</span><span class="p">,</span>
+            <span class="n">_transform_one</span><span class="p">,</span>
+            <span class="n">column_as_labels</span><span class="o">=</span><span class="n">fit_dataframe_and_transform_dataframe</span><span class="p">,</span>
+            <span class="n">routed_params</span><span class="o">=</span><span class="n">routed_params</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_validate_output</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">Xs</span><span class="p">:</span>
+            <span class="c1"># All transformers are None</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_samples</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_hstack</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">Xs</span><span class="p">),</span> <span class="n">n_samples</span><span class="o">=</span><span class="n">n_samples</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_hstack</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Xs</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">n_samples</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Stacks Xs horizontally.</span>
+
+<span class="sd">        This allows subclasses to control the stacking behavior, while reusing</span>
+<span class="sd">        everything else from ColumnTransformer.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        Xs : list of {array-like, sparse matrix, dataframe}</span>
+<span class="sd">            The container to concatenate.</span>
+<span class="sd">        n_samples : int</span>
+<span class="sd">            The number of samples in the input data to checking the transformation</span>
+<span class="sd">            consistency.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">sparse_output_</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="c1"># since all columns should be numeric before stacking them</span>
+                <span class="c1"># in a sparse matrix, `check_array` is used for the</span>
+                <span class="c1"># dtype conversion if necessary.</span>
+                <span class="n">converted_Xs</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">check_array</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">accept_sparse</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">ensure_all_finite</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs</span>
+                <span class="p">]</span>
+            <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="s2">&quot;For a sparse output, all columns should &quot;</span>
+                    <span class="s2">&quot;be a numeric or convertible to a numeric.&quot;</span>
+                <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+            <span class="k">return</span> <span class="n">sparse</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">converted_Xs</span><span class="p">)</span><span class="o">.</span><span class="n">tocsr</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">Xs</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span> <span class="k">if</span> <span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">else</span> <span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">]</span>
+            <span class="n">adapter</span> <span class="o">=</span> <span class="n">_get_container_adapter</span><span class="p">(</span><span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">adapter</span> <span class="ow">and</span> <span class="nb">all</span><span class="p">(</span><span class="n">adapter</span><span class="o">.</span><span class="n">is_supported_container</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">):</span>
+                <span class="c1"># rename before stacking as it avoids to error on temporary duplicated</span>
+                <span class="c1"># columns</span>
+                <span class="n">transformer_names</span> <span class="o">=</span> <span class="p">[</span>
+                    <span class="n">t</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter</span><span class="p">(</span>
+                        <span class="n">fitted</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">column_as_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                        <span class="n">skip_drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                        <span class="n">skip_empty_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="p">]</span>
+                <span class="n">feature_names_outs</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span><span class="o">.</span><span class="n">columns</span> <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs</span> <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">verbose_feature_names_out</span><span class="p">:</span>
+                    <span class="c1"># `_add_prefix_for_feature_names_out` takes care about raising</span>
+                    <span class="c1"># an error if there are duplicated columns.</span>
+                    <span class="n">feature_names_outs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_add_prefix_for_feature_names_out</span><span class="p">(</span>
+                        <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">transformer_names</span><span class="p">,</span> <span class="n">feature_names_outs</span><span class="p">))</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># check for duplicated columns and raise if any</span>
+                    <span class="n">feature_names_outs</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">feature_names_outs</span><span class="p">))</span>
+                    <span class="n">feature_names_count</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">feature_names_outs</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">feature_names_count</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+                        <span class="n">duplicated_feature_names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                            <span class="n">name</span>
+                            <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">count</span> <span class="ow">in</span> <span class="n">feature_names_count</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+                            <span class="k">if</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="mi">1</span>
+                        <span class="p">)</span>
+                        <span class="n">err_msg</span> <span class="o">=</span> <span class="p">(</span>
+                            <span class="s2">&quot;Duplicated feature names found before concatenating the&quot;</span>
+                            <span class="s2">&quot; outputs of the transformers:&quot;</span>
+                            <span class="sa">f</span><span class="s2">&quot; </span><span class="si">{</span><span class="n">duplicated_feature_names</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                        <span class="p">)</span>
+                        <span class="k">for</span> <span class="n">transformer_name</span><span class="p">,</span> <span class="n">X</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">transformer_names</span><span class="p">,</span> <span class="n">Xs</span><span class="p">):</span>
+                            <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                                <span class="k">continue</span>
+                            <span class="n">dup_cols_in_transformer</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span>
+                                <span class="nb">set</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="n">duplicated_feature_names</span><span class="p">)</span>
+                            <span class="p">)</span>
+                            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">dup_cols_in_transformer</span><span class="p">):</span>
+                                <span class="n">err_msg</span> <span class="o">+=</span> <span class="p">(</span>
+                                    <span class="sa">f</span><span class="s2">&quot;Transformer </span><span class="si">{</span><span class="n">transformer_name</span><span class="si">}</span><span class="s2"> has conflicting &quot;</span>
+                                    <span class="sa">f</span><span class="s2">&quot;columns names: </span><span class="si">{</span><span class="n">dup_cols_in_transformer</span><span class="si">}</span><span class="s2">.</span><span class="se">\n</span><span class="s2">&quot;</span>
+                                <span class="p">)</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                            <span class="n">err_msg</span>
+                            <span class="o">+</span> <span class="s2">&quot;Either make sure that the transformers named above &quot;</span>
+                            <span class="s2">&quot;do not generate columns with conflicting names or set &quot;</span>
+                            <span class="s2">&quot;verbose_feature_names_out=True to automatically &quot;</span>
+                            <span class="s2">&quot;prefix to the output feature names with the name &quot;</span>
+                            <span class="s2">&quot;of the transformer to prevent any conflicting &quot;</span>
+                            <span class="s2">&quot;names.&quot;</span>
+                        <span class="p">)</span>
+
+                <span class="n">names_idx</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="k">for</span> <span class="n">X</span> <span class="ow">in</span> <span class="n">Xs</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">continue</span>
+                    <span class="n">names_out</span> <span class="o">=</span> <span class="n">feature_names_outs</span><span class="p">[</span><span class="n">names_idx</span> <span class="p">:</span> <span class="n">names_idx</span> <span class="o">+</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
+                    <span class="n">adapter</span><span class="o">.</span><span class="n">rename_columns</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">names_out</span><span class="p">)</span>
+                    <span class="n">names_idx</span> <span class="o">+=</span> <span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+                <span class="n">output</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>
+                <span class="n">output_samples</span> <span class="o">=</span> <span class="n">output</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">output_samples</span> <span class="o">!=</span> <span class="n">n_samples</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                        <span class="s2">&quot;Concatenating DataFrames from the transformer&#39;s output lead to&quot;</span>
+                        <span class="s2">&quot; an inconsistent number of samples. The output may have Pandas&quot;</span>
+                        <span class="s2">&quot; Indexes that do not match, or that transformers are returning&quot;</span>
+                        <span class="s2">&quot; number of samples which are not the same as the number input&quot;</span>
+                        <span class="s2">&quot; samples.&quot;</span>
+                    <span class="p">)</span>
+
+                <span class="k">return</span> <span class="n">output</span>
+
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">hstack</span><span class="p">(</span><span class="n">Xs</span><span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_sk_visual_block_</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">remainder</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span> <span class="o">==</span> <span class="s2">&quot;drop&quot;</span><span class="p">:</span>
+            <span class="n">transformers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span>
+        <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;_remainder&quot;</span><span class="p">):</span>
+            <span class="n">remainder_columns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_remainder</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;feature_names_in_&quot;</span><span class="p">)</span>
+                <span class="ow">and</span> <span class="n">remainder_columns</span>
+                <span class="ow">and</span> <span class="ow">not</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">remainder_columns</span><span class="p">)</span>
+            <span class="p">):</span>
+                <span class="n">remainder_columns</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">feature_names_in_</span><span class="p">[</span><span class="n">remainder_columns</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+            <span class="n">transformers</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">,</span> <span class="p">[(</span><span class="s2">&quot;remainder&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span><span class="p">,</span> <span class="n">remainder_columns</span><span class="p">)]</span>
+            <span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">transformers</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">,</span> <span class="p">[(</span><span class="s2">&quot;remainder&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)])</span>
+
+        <span class="n">names</span><span class="p">,</span> <span class="n">transformers</span><span class="p">,</span> <span class="n">name_details</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">transformers</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">_VisualBlock</span><span class="p">(</span>
+            <span class="s2">&quot;parallel&quot;</span><span class="p">,</span> <span class="n">transformers</span><span class="p">,</span> <span class="n">names</span><span class="o">=</span><span class="n">names</span><span class="p">,</span> <span class="n">name_details</span><span class="o">=</span><span class="n">name_details</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">named_transformers_</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">except</span> <span class="ne">AttributeError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;ColumnTransformer is subscriptable after it is fitted&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+        <span class="k">except</span> <span class="ne">KeyError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;&#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39; is not a valid transformer name&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_get_empty_routing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return empty routing.</span>
+
+<span class="sd">        Used while routing can be disabled.</span>
+
+<span class="sd">        TODO: Remove when ``set_config(enable_metadata_routing=False)`` is no</span>
+<span class="sd">        more an option.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">Bunch</span><span class="p">(</span>
+            <span class="o">**</span><span class="p">{</span>
+                <span class="n">name</span><span class="p">:</span> <span class="n">Bunch</span><span class="p">(</span><span class="o">**</span><span class="p">{</span><span class="n">method</span><span class="p">:</span> <span class="p">{}</span> <span class="k">for</span> <span class="n">method</span> <span class="ow">in</span> <span class="n">METHODS</span><span class="p">})</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_iter</span><span class="p">(</span>
+                    <span class="n">fitted</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">column_as_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                    <span class="n">skip_drop</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="n">skip_empty_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">}</span>
+        <span class="p">)</span>
+
+<div class="viewcode-block" id="ColumnTransformer.get_metadata_routing">
+<a class="viewcode-back" href="../../../index.html#flood_tool.ColumnTransformer.get_metadata_routing">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_metadata_routing</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get metadata routing of this object.</span>
+
+<span class="sd">        Please check :ref:`User Guide &lt;metadata_routing&gt;` on how the routing</span>
+<span class="sd">        mechanism works.</span>
+
+<span class="sd">        .. versionadded:: 1.4</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        routing : MetadataRouter</span>
+<span class="sd">            A :class:`~sklearn.utils.metadata_routing.MetadataRouter` encapsulating</span>
+<span class="sd">            routing information.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">router</span> <span class="o">=</span> <span class="n">MetadataRouter</span><span class="p">(</span><span class="n">owner</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">)</span>
+        <span class="c1"># Here we don&#39;t care about which columns are used for which</span>
+        <span class="c1"># transformers, and whether or not a transformer is used at all, which</span>
+        <span class="c1"># might happen if no columns are selected for that transformer. We</span>
+        <span class="c1"># request all metadata requested by all transformers.</span>
+        <span class="n">transformers</span> <span class="o">=</span> <span class="n">chain</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">transformers</span><span class="p">,</span> <span class="p">[(</span><span class="s2">&quot;remainder&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">remainder</span><span class="p">,</span> <span class="kc">None</span><span class="p">)])</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">step</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">transformers</span><span class="p">:</span>
+            <span class="n">method_mapping</span> <span class="o">=</span> <span class="n">MethodMapping</span><span class="p">()</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">step</span><span class="p">,</span> <span class="s2">&quot;fit_transform&quot;</span><span class="p">):</span>
+                <span class="p">(</span>
+                    <span class="n">method_mapping</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">caller</span><span class="o">=</span><span class="s2">&quot;fit&quot;</span><span class="p">,</span> <span class="n">callee</span><span class="o">=</span><span class="s2">&quot;fit_transform&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span>
+                        <span class="n">caller</span><span class="o">=</span><span class="s2">&quot;fit_transform&quot;</span><span class="p">,</span> <span class="n">callee</span><span class="o">=</span><span class="s2">&quot;fit_transform&quot;</span>
+                    <span class="p">)</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="p">(</span>
+                    <span class="n">method_mapping</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">caller</span><span class="o">=</span><span class="s2">&quot;fit&quot;</span><span class="p">,</span> <span class="n">callee</span><span class="o">=</span><span class="s2">&quot;fit&quot;</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">caller</span><span class="o">=</span><span class="s2">&quot;fit&quot;</span><span class="p">,</span> <span class="n">callee</span><span class="o">=</span><span class="s2">&quot;transform&quot;</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">caller</span><span class="o">=</span><span class="s2">&quot;fit_transform&quot;</span><span class="p">,</span> <span class="n">callee</span><span class="o">=</span><span class="s2">&quot;fit&quot;</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">caller</span><span class="o">=</span><span class="s2">&quot;fit_transform&quot;</span><span class="p">,</span> <span class="n">callee</span><span class="o">=</span><span class="s2">&quot;transform&quot;</span><span class="p">)</span>
+                <span class="p">)</span>
+            <span class="n">method_mapping</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">caller</span><span class="o">=</span><span class="s2">&quot;transform&quot;</span><span class="p">,</span> <span class="n">callee</span><span class="o">=</span><span class="s2">&quot;transform&quot;</span><span class="p">)</span>
+            <span class="n">router</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">method_mapping</span><span class="o">=</span><span class="n">method_mapping</span><span class="p">,</span> <span class="o">**</span><span class="p">{</span><span class="n">name</span><span class="p">:</span> <span class="n">step</span><span class="p">})</span>
+
+        <span class="k">return</span> <span class="n">router</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">__sklearn_tags__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">tags</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__sklearn_tags__</span><span class="p">()</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">tags</span><span class="o">.</span><span class="n">input_tags</span><span class="o">.</span><span class="n">sparse</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span>
+                <span class="n">get_tags</span><span class="p">(</span><span class="n">trans</span><span class="p">)</span><span class="o">.</span><span class="n">input_tags</span><span class="o">.</span><span class="n">sparse</span>
+                <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">trans</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">transformers</span>
+                <span class="k">if</span> <span class="n">trans</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">&quot;passthrough&quot;</span><span class="p">,</span> <span class="s2">&quot;drop&quot;</span><span class="p">}</span>
+            <span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+            <span class="c1"># If `transformers` does not comply with our API (list of tuples)</span>
+            <span class="c1"># then it will fail. In this case, we assume that `sparse` is False</span>
+            <span class="c1"># but the parameter validation will raise an error during `fit`.</span>
+            <span class="k">pass</span>  <span class="c1"># pragma: no cover</span>
+        <span class="k">return</span> <span class="n">tags</span></div>
+
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_check_X</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Use check_array only when necessary, e.g. on lists and other non-array-likes.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="p">(</span><span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">&quot;__array__&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">))</span>
+        <span class="ow">or</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="s2">&quot;__dataframe__&quot;</span><span class="p">)</span>
+        <span class="ow">or</span> <span class="n">sparse</span><span class="o">.</span><span class="n">issparse</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="n">X</span>
+    <span class="k">return</span> <span class="n">check_array</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">ensure_all_finite</span><span class="o">=</span><span class="s2">&quot;allow-nan&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_is_empty_column_selection</span><span class="p">(</span><span class="n">column</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Return True if the column selection is empty (empty list or all-False</span>
+<span class="sd">    boolean array).</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="p">(</span>
+        <span class="nb">hasattr</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="s2">&quot;dtype&quot;</span><span class="p">)</span>
+        <span class="c1"># Not necessarily a numpy dtype, can be a pandas dtype as well</span>
+        <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">column</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">issubdtype</span><span class="p">(</span><span class="n">column</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">bool_</span><span class="p">)</span>
+    <span class="p">):</span>
+        <span class="k">return</span> <span class="ow">not</span> <span class="n">column</span><span class="o">.</span><span class="n">any</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">column</span><span class="p">,</span> <span class="s2">&quot;__len__&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="n">column</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">or</span> <span class="p">(</span>
+            <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">col</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">column</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">column</span><span class="p">)</span>
+        <span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_transformer_list</span><span class="p">(</span><span class="n">estimators</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct (name, trans, column) tuples from list</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">transformers</span><span class="p">,</span> <span class="n">columns</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">estimators</span><span class="p">)</span>
+    <span class="n">names</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="n">_name_estimators</span><span class="p">(</span><span class="n">transformers</span><span class="p">))</span>
+
+    <span class="n">transformer_list</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">transformers</span><span class="p">,</span> <span class="n">columns</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">transformer_list</span>
+
+
+<span class="c1"># This function is not validated using validate_params because</span>
+<span class="c1"># it&#39;s just a factory for ColumnTransformer.</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">make_column_transformer</span><span class="p">(</span>
+    <span class="o">*</span><span class="n">transformers</span><span class="p">,</span>
+    <span class="n">remainder</span><span class="o">=</span><span class="s2">&quot;drop&quot;</span><span class="p">,</span>
+    <span class="n">sparse_threshold</span><span class="o">=</span><span class="mf">0.3</span><span class="p">,</span>
+    <span class="n">n_jobs</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+    <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="n">verbose_feature_names_out</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="n">force_int_remainder_cols</span><span class="o">=</span><span class="s2">&quot;deprecated&quot;</span><span class="p">,</span>
+<span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Construct a ColumnTransformer from the given transformers.</span>
+
+<span class="sd">    This is a shorthand for the ColumnTransformer constructor; it does not</span>
+<span class="sd">    require, and does not permit, naming the transformers. Instead, they will</span>
+<span class="sd">    be given names automatically based on their types. It also does not allow</span>
+<span class="sd">    weighting with ``transformer_weights``.</span>
+
+<span class="sd">    Read more in the :ref:`User Guide &lt;make_column_transformer&gt;`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    *transformers : tuples</span>
+<span class="sd">        Tuples of the form (transformer, columns) specifying the</span>
+<span class="sd">        transformer objects to be applied to subsets of the data.</span>
+
+<span class="sd">        transformer : {&#39;drop&#39;, &#39;passthrough&#39;} or estimator</span>
+<span class="sd">            Estimator must support :term:`fit` and :term:`transform`.</span>
+<span class="sd">            Special-cased strings &#39;drop&#39; and &#39;passthrough&#39; are accepted as</span>
+<span class="sd">            well, to indicate to drop the columns or to pass them through</span>
+<span class="sd">            untransformed, respectively.</span>
+<span class="sd">        columns : str,  array-like of str, int, array-like of int, slice, \</span>
+<span class="sd">                array-like of bool or callable</span>
+<span class="sd">            Indexes the data on its second axis. Integers are interpreted as</span>
+<span class="sd">            positional columns, while strings can reference DataFrame columns</span>
+<span class="sd">            by name. A scalar string or int should be used where</span>
+<span class="sd">            ``transformer`` expects X to be a 1d array-like (vector),</span>
+<span class="sd">            otherwise a 2d array will be passed to the transformer.</span>
+<span class="sd">            A callable is passed the input data `X` and can return any of the</span>
+<span class="sd">            above. To select multiple columns by name or dtype, you can use</span>
+<span class="sd">            :obj:`make_column_selector`.</span>
+
+<span class="sd">    remainder : {&#39;drop&#39;, &#39;passthrough&#39;} or estimator, default=&#39;drop&#39;</span>
+<span class="sd">        By default, only the specified columns in `transformers` are</span>
+<span class="sd">        transformed and combined in the output, and the non-specified</span>
+<span class="sd">        columns are dropped. (default of ``&#39;drop&#39;``).</span>
+<span class="sd">        By specifying ``remainder=&#39;passthrough&#39;``, all remaining columns that</span>
+<span class="sd">        were not specified in `transformers` will be automatically passed</span>
+<span class="sd">        through. This subset of columns is concatenated with the output of</span>
+<span class="sd">        the transformers.</span>
+<span class="sd">        By setting ``remainder`` to be an estimator, the remaining</span>
+<span class="sd">        non-specified columns will use the ``remainder`` estimator. The</span>
+<span class="sd">        estimator must support :term:`fit` and :term:`transform`.</span>
+
+<span class="sd">    sparse_threshold : float, default=0.3</span>
+<span class="sd">        If the transformed output consists of a mix of sparse and dense data,</span>
+<span class="sd">        it will be stacked as a sparse matrix if the density is lower than this</span>
+<span class="sd">        value. Use ``sparse_threshold=0`` to always return dense.</span>
+<span class="sd">        When the transformed output consists of all sparse or all dense data,</span>
+<span class="sd">        the stacked result will be sparse or dense, respectively, and this</span>
+<span class="sd">        keyword will be ignored.</span>
+
+<span class="sd">    n_jobs : int, default=None</span>
+<span class="sd">        Number of jobs to run in parallel.</span>
+<span class="sd">        ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.</span>
+<span class="sd">        ``-1`` means using all processors. See :term:`Glossary &lt;n_jobs&gt;`</span>
+<span class="sd">        for more details.</span>
+
+<span class="sd">    verbose : bool, default=False</span>
+<span class="sd">        If True, the time elapsed while fitting each transformer will be</span>
+<span class="sd">        printed as it is completed.</span>
+
+<span class="sd">    verbose_feature_names_out : bool, default=True</span>
+<span class="sd">        If True, :meth:`ColumnTransformer.get_feature_names_out` will prefix</span>
+<span class="sd">        all feature names with the name of the transformer that generated that</span>
+<span class="sd">        feature.</span>
+<span class="sd">        If False, :meth:`ColumnTransformer.get_feature_names_out` will not</span>
+<span class="sd">        prefix any feature names and will error if feature names are not</span>
+<span class="sd">        unique.</span>
+
+<span class="sd">        .. versionadded:: 1.0</span>
+
+<span class="sd">    force_int_remainder_cols : bool, default=True</span>
+<span class="sd">        This parameter has no effect.</span>
+
+<span class="sd">        .. note::</span>
+<span class="sd">            If you do not access the list of columns for the remainder columns</span>
+<span class="sd">            in the :attr:`ColumnTransformer.transformers_` fitted attribute,</span>
+<span class="sd">            you do not need to set this parameter.</span>
+
+<span class="sd">        .. versionadded:: 1.5</span>
+
+<span class="sd">        .. versionchanged:: 1.7</span>
+<span class="sd">           The default value for `force_int_remainder_cols` will change from</span>
+<span class="sd">           `True` to `False` in version 1.7.</span>
+
+<span class="sd">        .. deprecated:: 1.7</span>
+<span class="sd">           `force_int_remainder_cols` is deprecated and will be removed in version 1.9.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    ct : ColumnTransformer</span>
+<span class="sd">        Returns a :class:`ColumnTransformer` object.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    ColumnTransformer : Class that allows combining the</span>
+<span class="sd">        outputs of multiple transformer objects used on column subsets</span>
+<span class="sd">        of the data into a single feature space.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn.preprocessing import StandardScaler, OneHotEncoder</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn.compose import make_column_transformer</span>
+<span class="sd">    &gt;&gt;&gt; make_column_transformer(</span>
+<span class="sd">    ...     (StandardScaler(), [&#39;numerical_column&#39;]),</span>
+<span class="sd">    ...     (OneHotEncoder(), [&#39;categorical_column&#39;]))</span>
+<span class="sd">    ColumnTransformer(transformers=[(&#39;standardscaler&#39;, StandardScaler(...),</span>
+<span class="sd">                                     [&#39;numerical_column&#39;]),</span>
+<span class="sd">                                    (&#39;onehotencoder&#39;, OneHotEncoder(...),</span>
+<span class="sd">                                     [&#39;categorical_column&#39;])])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># transformer_weights keyword is not passed through because the user</span>
+    <span class="c1"># would need to know the automatically generated names of the transformers</span>
+    <span class="n">transformer_list</span> <span class="o">=</span> <span class="n">_get_transformer_list</span><span class="p">(</span><span class="n">transformers</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ColumnTransformer</span><span class="p">(</span>
+        <span class="n">transformer_list</span><span class="p">,</span>
+        <span class="n">n_jobs</span><span class="o">=</span><span class="n">n_jobs</span><span class="p">,</span>
+        <span class="n">remainder</span><span class="o">=</span><span class="n">remainder</span><span class="p">,</span>
+        <span class="n">sparse_threshold</span><span class="o">=</span><span class="n">sparse_threshold</span><span class="p">,</span>
+        <span class="n">verbose</span><span class="o">=</span><span class="n">verbose</span><span class="p">,</span>
+        <span class="n">verbose_feature_names_out</span><span class="o">=</span><span class="n">verbose_feature_names_out</span><span class="p">,</span>
+        <span class="n">force_int_remainder_cols</span><span class="o">=</span><span class="n">force_int_remainder_cols</span><span class="p">,</span>
+    <span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">make_column_selector</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a callable to select columns to be used with</span>
+<span class="sd">    :class:`ColumnTransformer`.</span>
+
+<span class="sd">    :func:`make_column_selector` can select columns based on datatype or the</span>
+<span class="sd">    columns name with a regex. When using multiple selection criteria, **all**</span>
+<span class="sd">    criteria must match for a column to be selected.</span>
+
+<span class="sd">    For an example of how to use :func:`make_column_selector` within a</span>
+<span class="sd">    :class:`ColumnTransformer` to select columns based on data type (i.e.</span>
+<span class="sd">    `dtype`), refer to</span>
+<span class="sd">    :ref:`sphx_glr_auto_examples_compose_plot_column_transformer_mixed_types.py`.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    pattern : str, default=None</span>
+<span class="sd">        Name of columns containing this regex pattern will be included. If</span>
+<span class="sd">        None, column selection will not be selected based on pattern.</span>
+
+<span class="sd">    dtype_include : column dtype or list of column dtypes, default=None</span>
+<span class="sd">        A selection of dtypes to include. For more details, see</span>
+<span class="sd">        :meth:`pandas.DataFrame.select_dtypes`.</span>
+
+<span class="sd">    dtype_exclude : column dtype or list of column dtypes, default=None</span>
+<span class="sd">        A selection of dtypes to exclude. For more details, see</span>
+<span class="sd">        :meth:`pandas.DataFrame.select_dtypes`.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    selector : callable</span>
+<span class="sd">        Callable for column selection to be used by a</span>
+<span class="sd">        :class:`ColumnTransformer`.</span>
+
+<span class="sd">    See Also</span>
+<span class="sd">    --------</span>
+<span class="sd">    ColumnTransformer : Class that allows combining the</span>
+<span class="sd">        outputs of multiple transformer objects used on column subsets</span>
+<span class="sd">        of the data into a single feature space.</span>
+
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn.preprocessing import StandardScaler, OneHotEncoder</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn.compose import make_column_transformer</span>
+<span class="sd">    &gt;&gt;&gt; from sklearn.compose import make_column_selector</span>
+<span class="sd">    &gt;&gt;&gt; import numpy as np</span>
+<span class="sd">    &gt;&gt;&gt; import pandas as pd  # doctest: +SKIP</span>
+<span class="sd">    &gt;&gt;&gt; X = pd.DataFrame({&#39;city&#39;: [&#39;London&#39;, &#39;London&#39;, &#39;Paris&#39;, &#39;Sallisaw&#39;],</span>
+<span class="sd">    ...                   &#39;rating&#39;: [5, 3, 4, 5]})  # doctest: +SKIP</span>
+<span class="sd">    &gt;&gt;&gt; ct = make_column_transformer(</span>
+<span class="sd">    ...       (StandardScaler(),</span>
+<span class="sd">    ...        make_column_selector(dtype_include=np.number)),  # rating</span>
+<span class="sd">    ...       (OneHotEncoder(),</span>
+<span class="sd">    ...        make_column_selector(dtype_include=object)))  # city</span>
+<span class="sd">    &gt;&gt;&gt; ct.fit_transform(X)  # doctest: +SKIP</span>
+<span class="sd">    array([[ 0.90453403,  1.        ,  0.        ,  0.        ],</span>
+<span class="sd">           [-1.50755672,  1.        ,  0.        ,  0.        ],</span>
+<span class="sd">           [-0.30151134,  0.        ,  1.        ,  0.        ],</span>
+<span class="sd">           [ 0.90453403,  0.        ,  0.        ,  1.        ]])</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">dtype_include</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">dtype_exclude</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pattern</span> <span class="o">=</span> <span class="n">pattern</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtype_include</span> <span class="o">=</span> <span class="n">dtype_include</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">dtype_exclude</span> <span class="o">=</span> <span class="n">dtype_exclude</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Callable for column selection to be used by a</span>
+<span class="sd">        :class:`ColumnTransformer`.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        df : dataframe of shape (n_features, n_samples)</span>
+<span class="sd">            DataFrame to select columns from.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s2">&quot;iloc&quot;</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;make_column_selector can only be applied to pandas dataframes&quot;</span>
+            <span class="p">)</span>
+        <span class="n">df_row</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype_include</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">dtype_exclude</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">df_row</span> <span class="o">=</span> <span class="n">df_row</span><span class="o">.</span><span class="n">select_dtypes</span><span class="p">(</span>
+                <span class="n">include</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype_include</span><span class="p">,</span> <span class="n">exclude</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">dtype_exclude</span>
+            <span class="p">)</span>
+        <span class="n">cols</span> <span class="o">=</span> <span class="n">df_row</span><span class="o">.</span><span class="n">columns</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pattern</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">cols</span> <span class="o">=</span> <span class="n">cols</span><span class="p">[</span><span class="n">cols</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">contains</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pattern</span><span class="p">,</span> <span class="n">regex</span><span class="o">=</span><span class="kc">True</span><span class="p">)]</span>
+        <span class="k">return</span> <span class="n">cols</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_feature_names_out_with_str_format</span><span class="p">(</span>
+    <span class="n">transformer_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">feature_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">str_format</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">str_format</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
+        <span class="n">transformer_name</span><span class="o">=</span><span class="n">transformer_name</span><span class="p">,</span> <span class="n">feature_name</span><span class="o">=</span><span class="n">feature_name</span>
+    <span class="p">)</span>
+</pre></div>
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="Main">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../../../index.html">Flood Tool</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../models.html">Regression and Classification models</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../coordinates.html">Distance Measuring &amp; Geodetic Transformations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../visualization.html">Visualising HistoricFlooding &amp; FloodRisk with Local Authority</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../../../index.html">Documentation overview</a><ul>
+  <li><a href="../../index.html">Module code</a><ul>
+  </ul></li>
+  </ul></li>
+</ul>
+</div>
+<search id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</search>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &#169;2025, n/a.
+      
+      |
+      Powered by <a href="https://www.sphinx-doc.org/">Sphinx 8.2.3</a>
+      &amp; <a href="https://alabaster.readthedocs.io">Alabaster 0.7.16</a>
+      
+    </div>
+
+    
+
+    
+  </body>
+</html>

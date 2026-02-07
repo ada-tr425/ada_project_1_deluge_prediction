@@ -1,0 +1,17 @@
+# Contributing to the Flood Tool
+
+## Style Guide
+
+When contributing to the Flood Tool project, please adhere to the following style guidelines to ensure consistency and readability across the codebase:
+
+- Follow PEP 8 naming conventions for variables and functions.
+- Use docstrings to document all public classes and methods.
+- Write unit tests for any new features or bug fixes.
+
+## Pull Requests
+
+When submitting a pull request, please ensure that:
+
+- Your code passes all existing tests.
+- You have added tests for any new functionality.
+- You provide a clear description of the changes made and the reasons for them.
