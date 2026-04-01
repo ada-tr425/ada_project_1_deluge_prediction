@@ -24,9 +24,25 @@ from ..models.historic_flood_classifier import predict_postcode
 # ---------------------------------------------------------------------------
 # General colour palette for Folium markers
 FOLIUM_COLORS = [
-    "red", "blue", "green", "purple", "orange", "darkred", "lightred",
-    "beige", "darkblue", "darkgreen", "cadetblue", "darkpurple", "white",
-    "pink", "lightblue", "lightgreen", "gray", "black", "lightgray",
+    "red",
+    "blue",
+    "green",
+    "purple",
+    "orange",
+    "darkred",
+    "lightred",
+    "beige",
+    "darkblue",
+    "darkgreen",
+    "cadetblue",
+    "darkpurple",
+    "white",
+    "pink",
+    "lightblue",
+    "lightgreen",
+    "gray",
+    "black",
+    "lightgray",
 ]
 # ---------------------------------------------------------------------------
 __all__ = [
@@ -46,6 +62,7 @@ __all__ = [
 
 # ---------------------------------------------------------------------------
 # General mapping helpers
+
 
 def make_base_map(
     centre_lat: float,
@@ -75,7 +92,9 @@ def make_base_map(
         control_scale=True,
     )
 
+
 # -------------------------------------------------------------
+
 
 def make_interactive_base_map(
     df: pd.DataFrame,
@@ -131,6 +150,7 @@ def make_interactive_base_map(
 
     return m
 
+
 # ---------------------------------------------------------------------------
 def _make_colour_lookup(labels, colours=FOLIUM_COLORS):
     """
@@ -151,6 +171,7 @@ def _make_colour_lookup(labels, colours=FOLIUM_COLORS):
     labels = list(pd.unique(labels))
     colour_cycle = itertools.cycle(colours)
     return {lab: next(colour_cycle) for lab in labels}
+
 
 def latest_weather_data(
     df: pd.DataFrame,
@@ -193,14 +214,17 @@ def latest_weather_data(
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
 
     # Filter by chosen parameter
-    df_param = df[df["parameter"].astype(str).str.contains(parameter, case=False, na=False)]
+    df_param = df[
+        df["parameter"]
+        .astype(str)
+        .str.contains(parameter, case=False, na=False)
+    ]
     if df_param.empty:
         raise ValueError(f"No rows found for parameter '{parameter}'")
 
     # Pick latest measurement for each station
-    df_latest = (
-        df_param.sort_values("dateTime")
-        .drop_duplicates(subset=["stationReference"], keep="last")
+    df_latest = df_param.sort_values("dateTime").drop_duplicates(
+        subset=["stationReference"], keep="last"
     )
     df_latest = df_latest.dropna(subset=[lat_col, lon_col, "value"])
 
@@ -217,13 +241,13 @@ def latest_weather_data(
 
     def colour_for_value(v: float) -> str:
         if v >= q75:
-            return "red"      # highest values
+            return "red"  # highest values
         elif v >= q50:
-            return "orange"   # high
+            return "orange"  # high
         elif v >= q25:
-            return "green"    # moderate
+            return "green"  # moderate
         else:
-            return "blue"     # low
+            return "blue"  # low
 
     # Create map (roughly centred over England)
     m = folium.Map(location=[51.0, 0.0], zoom_start=7)
@@ -264,8 +288,10 @@ def latest_weather_data(
 
     return m
 
+
 # ---------------------------------------------------------------------------
 # Model 1: Historic flood classifier – postcode area (BA, BN, BH, .)
+
 
 def plot_historic_flood_for_postcode(
     postcode: str,
@@ -339,9 +365,11 @@ def plot_historic_flood_for_postcode(
 
     return fmap
 
+
 # ---------------------------------------------------------------------------
 # Model 1: Historic flood classifier – postcode areas (BA, BN, BH, …)
 # ---------------------------------------------------------------------------
+
 
 def plot_flood_by_area(
     df: pd.DataFrame,
@@ -417,13 +445,17 @@ def plot_flood_by_area(
 
     # Assign colours to areas
     if len(area_list) <= len(FOLIUM_COLORS):
-        area_colors = {area: FOLIUM_COLORS[i] for i, area in enumerate(area_list)}
+        area_colors = {
+            area: FOLIUM_COLORS[i] for i, area in enumerate(area_list)
+        }
     else:
         # Fall back to HSL colours if there are many areas
         def hsl(i, n):
             return f"hsl({int(360 * i / max(1, n))}, 70%, 45%)"
 
-        area_colors = {area: hsl(i, len(area_list)) for i, area in enumerate(area_list)}
+        area_colors = {
+            area: hsl(i, len(area_list)) for i, area in enumerate(area_list)
+        }
 
     # Add one FeatureGroup per area
     for area in area_list:
@@ -459,10 +491,12 @@ def plot_flood_by_area(
     folium.LayerControl(collapsed=False).add_to(m)
 
     # Zoom to data extent
-    m.fit_bounds([
-        [df[lat_col].min(), df[lon_col].min()],
-        [df[lat_col].max(), df[lon_col].max()],
-    ])
+    m.fit_bounds(
+        [
+            [df[lat_col].min(), df[lon_col].min()],
+            [df[lat_col].max(), df[lon_col].max()],
+        ]
+    )
 
     # Simple legend
     legend_rows = ""
@@ -494,10 +528,12 @@ def plot_flood_by_area(
         border-radius:6px;
         border:1px solid rgba(0,0,0,0.25);
         box-shadow:0 2px 8px rgba(0,0,0,0.15);
-        font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+        font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,
+        sans-serif;
         ">
-        <div style="display:flex;justify-content:space-between;align-items:center;
-                    gap:12px;margin-bottom:6px;cursor:pointer;"
+        <div style="display:flex;justify-content:space-between;
+                    align-items:center;gap:12px;margin-bottom:6px;
+                    cursor:pointer;"
              onclick="var c=this.nextElementSibling;
                       c.style.display=(c.style.display==='none'?'block':'none');">
             <div style="font-weight:600;font-size:13px;">Postcode Areas</div>
@@ -512,9 +548,11 @@ def plot_flood_by_area(
 
     return m
 
+
 # ---------------------------------------------------------------------------
 # Model 2: Local Authority Model and Flood risk Visualization
 # ---------------------------------------------------------------------------
+
 
 def plot_local_authority_map(
     df: pd.DataFrame,
@@ -607,9 +645,11 @@ def plot_local_authority_map(
     folium.LayerControl(collapsed=False).add_to(m)
     return m
 
+
 # ---------------------------------------------------------------------------
 # Model 2: Local Authority + flood risk – polygon and point visualisation
 # ---------------------------------------------------------------------------
+
 
 def plot_local_authority_real_shapes(
     df_units: pd.DataFrame,
@@ -623,7 +663,8 @@ def plot_local_authority_real_shapes(
     zoom_start: int = 7,
 ) -> folium.Map:
     """
-    Plot local authorities using official boundaries and overlay flooded points.
+    Plot local authorities using official boundaries and overlay flooded
+    points.
 
     - Local authority polygons come from a GeoPackage (ONS LAD 2023).
     - Only postcodes with historicallyFlooded == 1 are plotted as points.
@@ -682,28 +723,47 @@ def plot_local_authority_real_shapes(
     df = df[df[hist_col] == 1].copy()
 
     if df.empty:
-        raise ValueError(
-            f"No rows with '{hist_col} == 1' – nothing to plot."
-        )
+        raise ValueError(f"No rows with '{hist_col} == 1' – nothing to plot.")
 
     # Clean names for matching
     df[la_col] = df[la_col].astype(str).str.strip()
-    gdf_bound[boundary_name_col] = gdf_bound[boundary_name_col].astype(str).str.strip()
+    gdf_bound[boundary_name_col] = (
+        gdf_bound[boundary_name_col].astype(str).str.strip()
+    )
 
     # 3. Filter to authorities present in df (only those with histFlood=1)
     las_predicted = df[la_col].unique()
-    gdf_subset = gdf_bound[gdf_bound[boundary_name_col].isin(las_predicted)].copy()
+    gdf_subset = gdf_bound[
+        gdf_bound[boundary_name_col].isin(las_predicted)
+    ].copy()
 
     if len(gdf_subset) == 0:
         raise ValueError(
-            "No matching local authority names found between model and boundary file."
+            "No matching local authority names between model and boundary "
+            "file."
         )
 
     # 4. Colour polygons per authority
     colors = [
-        "red", "blue", "green", "purple", "orange", "darkred", "lightred",
-        "beige", "darkblue", "darkgreen", "cadetblue", "darkpurple", "white",
-        "pink", "lightblue", "lightgreen", "gray", "black", "lightgray",
+        "red",
+        "blue",
+        "green",
+        "purple",
+        "orange",
+        "darkred",
+        "lightred",
+        "beige",
+        "darkblue",
+        "darkgreen",
+        "cadetblue",
+        "darkpurple",
+        "white",
+        "pink",
+        "lightblue",
+        "lightgreen",
+        "gray",
+        "black",
+        "lightgray",
     ]
 
     la_list = sorted(gdf_subset[boundary_name_col].unique())
@@ -712,7 +772,12 @@ def plot_local_authority_real_shapes(
     def style_function(feature):
         la_name = feature["properties"][boundary_name_col]
         col = color_map.get(la_name, "lightgray")
-        return {"fillColor": col, "color": col, "weight": 1, "fillOpacity": 0.45}
+        return {
+            "fillColor": col,
+            "color": col,
+            "weight": 1,
+            "fillOpacity": 0.45,
+        }
 
     # 5. Base map
     center_lat = df["latitude"].mean()
@@ -760,7 +825,9 @@ def plot_local_authority_real_shapes(
         if postcode_col in df.columns:
             popup_parts.append(f"Postcode: {row[postcode_col]}")
         popup_parts.append(f"Risk label: {risk}")
-        popup_parts.append(f"Historically flooded: {row[hist_col]}")  # always 1 now
+        popup_parts.append(
+            f"Historically flooded: {row[hist_col]}"
+        )  # always 1 now
 
         popup_html = "<br>".join(popup_parts)
         col = risk_color(risk)
@@ -784,6 +851,7 @@ def plot_local_authority_real_shapes(
 # ----------------------------------------------------------------------------------------
 # Rainfall and Water Level Overlay Layer
 # ----------------------------------------------------------------------------------------
+
 
 def add_latest_weather_layer(
     fmap: folium.Map,
@@ -833,14 +901,17 @@ def add_latest_weather_layer(
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
 
     # Filter by parameter
-    df_param = df[df["parameter"].astype(str).str.contains(parameter, case=False, na=False)]
+    df_param = df[
+        df["parameter"]
+        .astype(str)
+        .str.contains(parameter, case=False, na=False)
+    ]
     if df_param.empty:
         raise ValueError(f"No rows found for parameter '{parameter}'")
 
     # Latest per station
-    df_latest = (
-        df_param.sort_values("dateTime")
-        .drop_duplicates(subset=["stationReference"], keep="last")
+    df_latest = df_param.sort_values("dateTime").drop_duplicates(
+        subset=["stationReference"], keep="last"
     )
     df_latest = df_latest.dropna(subset=[lat_col, lon_col, "value"])
 
@@ -889,6 +960,7 @@ def add_latest_weather_layer(
     fg.add_to(fmap)
 
     return fmap
+
 
 # ----------------------------------------------------------------------------------------
 # Rainfall and Water Level Overlay Layer +++Combine ALL MAPS
@@ -941,21 +1013,42 @@ def plot_combined_flood_and_rain_map(
 
     # Clean names for matching with boundaries
     df[la_col] = df[la_col].astype(str).str.strip()
-    gdf_bound[boundary_name_col] = gdf_bound[boundary_name_col].astype(str).str.strip()
+    gdf_bound[boundary_name_col] = (
+        gdf_bound[boundary_name_col].astype(str).str.strip()
+    )
 
     # Filter boundaries to only those LAs present in flooded data
     las_predicted = df[la_col].unique()
-    gdf_subset = gdf_bound[gdf_bound[boundary_name_col].isin(las_predicted)].copy()
+    gdf_subset = gdf_bound[
+        gdf_bound[boundary_name_col].isin(las_predicted)
+    ].copy()
     if len(gdf_subset) == 0:
         raise ValueError(
-            "No matching local authority names found between model and boundary file."
+            "No matching local authority names between model and boundary "
+            "file."
         )
 
     # Colour polygons per authority
     colors = [
-        "red", "blue", "green", "purple", "orange", "darkred", "lightred",
-        "beige", "darkblue", "darkgreen", "cadetblue", "darkpurple", "white",
-        "pink", "lightblue", "lightgreen", "gray", "black", "lightgray",
+        "red",
+        "blue",
+        "green",
+        "purple",
+        "orange",
+        "darkred",
+        "lightred",
+        "beige",
+        "darkblue",
+        "darkgreen",
+        "cadetblue",
+        "darkpurple",
+        "white",
+        "pink",
+        "lightblue",
+        "lightgreen",
+        "gray",
+        "black",
+        "lightgray",
     ]
     la_list = sorted(gdf_subset[boundary_name_col].unique())
     color_map = {la: colors[i % len(colors)] for i, la in enumerate(la_list)}
@@ -963,7 +1056,12 @@ def plot_combined_flood_and_rain_map(
     def style_function(feature):
         la_name = feature["properties"][boundary_name_col]
         col = color_map.get(la_name, "lightgray")
-        return {"fillColor": col, "color": col, "weight": 1, "fillOpacity": 0.45}
+        return {
+            "fillColor": col,
+            "color": col,
+            "weight": 1,
+            "fillOpacity": 0.45,
+        }
 
     # Base map centred on flooded postcodes
     center_lat = df["latitude"].mean()
@@ -995,7 +1093,9 @@ def plot_combined_flood_and_rain_map(
         }
         return mapping.get(r, "black")
 
-    points_layer = folium.FeatureGroup(name="Flood risk points (hist=1)", show=True)
+    points_layer = folium.FeatureGroup(
+        name="Flood risk points (hist=1)", show=True
+    )
 
     for _, row in df.iterrows():
         lat = row["latitude"]
@@ -1032,16 +1132,22 @@ def plot_combined_flood_and_rain_map(
         parameter=rain_parameter,
         lat_col=rain_lat_col,
         lon_col=rain_lon_col,
-        show=False,                        
+        show=False,
         layer_name=f"Latest {rain_parameter}",
     )
     folium.LayerControl(collapsed=False).add_to(m)
-    
+
     return m
 
 
-def plot_color_size_map(df, feature, size_feature=None, lat_col="latitude",
-                        lon_col="longitude", invert_size=False):
+def plot_color_size_map(
+    df,
+    feature,
+    size_feature=None,
+    lat_col="latitude",
+    lon_col="longitude",
+    invert_size=False,
+):
     """
     Map plotting for two features: color-coded by "feature" and
     optionally marker size by "size_feature".
@@ -1072,7 +1178,7 @@ def plot_color_size_map(df, feature, size_feature=None, lat_col="latitude",
     """
 
     # Plot a folium map roughly centered around England
-    m = folium.Map(location=[51., 0], zoom_start=7)
+    m = folium.Map(location=[51.0, 0], zoom_start=7)
 
     color_values = df[feature]
 
@@ -1091,11 +1197,13 @@ def plot_color_size_map(df, feature, size_feature=None, lat_col="latitude",
 
             def get_color(val):
                 return cm.linear.OrRd_09.scale(0, 1)(0.5)
+
             step_colormap = None  # no legend needed
         else:
             # Create a StepColormap with discrete colors for each category
-            step_colormap = cm.linear.OrRd_09.scale(min(categories),
-                                                    max(categories)).to_step(n)
+            step_colormap = cm.linear.OrRd_09.scale(
+                min(categories), max(categories)
+            ).to_step(n)
             step_colormap.index = list(categories)  # map steps
 
             # Map category value to color
@@ -1155,7 +1263,7 @@ def plot_color_size_map(df, feature, size_feature=None, lat_col="latitude",
             radius=get_radius(sval),
             color=get_color(cval),
             popup=f"{feature}: {cval}"
-            + (f"<br>{size_feature}: {sval}" if size_feature else "")
+            + (f"<br>{size_feature}: {sval}" if size_feature else ""),
         ).add_to(m)
 
     # Add legend if categorical or continuous
@@ -1169,11 +1277,18 @@ def plot_color_size_map(df, feature, size_feature=None, lat_col="latitude",
     return m
 
 
-def filtered_plot(df, feature1, feature2=None,
-                  lat_col="latitude", lon_col="longitude",
-                  feature1_min=None, feature1_max=None,
-                  feature2_min=None, feature2_max=None,
-                  invert_size=False):
+def filtered_plot(
+    df,
+    feature1,
+    feature2=None,
+    lat_col="latitude",
+    lon_col="longitude",
+    feature1_min=None,
+    feature1_max=None,
+    feature2_min=None,
+    feature2_max=None,
+    invert_size=False,
+):
     """
     Map plotting for two features: color-coded by "riskLabel" and
     optional marker size by "medianPrice", with optional thresholds.
@@ -1231,12 +1346,19 @@ def filtered_plot(df, feature1, feature2=None,
         print("No data remaining after filtering.")
         return None
 
-    return plot_color_size_map(filtered_df, feature1, feature2,
-                               lat_col=lat_col, lon_col=lon_col,
-                               invert_size=invert_size)
+    return plot_color_size_map(
+        filtered_df,
+        feature1,
+        feature2,
+        lat_col=lat_col,
+        lon_col=lon_col,
+        invert_size=invert_size,
+    )
 
 
-def plot_latest_rainfall_and_level(df, lat_col="latitude", lon_col="longitude"):
+def plot_latest_rainfall_and_level(
+    df, lat_col="latitude", lon_col="longitude"
+):
     """
     Plot the latest rainfall and river level measurements for each station
     on the same map, with separate color scales.
@@ -1258,13 +1380,10 @@ def plot_latest_rainfall_and_level(df, lat_col="latitude", lon_col="longitude"):
     df["value"] = pd.to_numeric(df["value"], errors="coerce")
 
     # Initialize map
-    m = folium.Map(location=[51., 0], zoom_start=7)
+    m = folium.Map(location=[51.0, 0], zoom_start=7)
 
     # Define parameters and their colormaps
-    params = {
-        "rainfall": cm.linear.YlOrRd_09,
-        "level": cm.linear.Blues_09
-    }
+    params = {"rainfall": cm.linear.YlOrRd_09, "level": cm.linear.Blues_09}
 
     for parameter, colormap_class in params.items():
         df_param = df[df["parameter"].str.contains(parameter, case=False)]
@@ -1272,9 +1391,8 @@ def plot_latest_rainfall_and_level(df, lat_col="latitude", lon_col="longitude"):
             continue
 
         # Pick latest measurement for each station
-        df_latest = (
-            df_param.sort_values("dateTime")
-            .drop_duplicates(subset=["stationReference"], keep="last")
+        df_latest = df_param.sort_values("dateTime").drop_duplicates(
+            subset=["stationReference"], keep="last"
         )
         df_latest = df_latest.dropna(subset=[lat_col, lon_col, "value"])
 

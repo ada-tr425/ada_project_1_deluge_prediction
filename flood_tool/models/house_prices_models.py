@@ -16,10 +16,7 @@ class HousePricesXGBRegressor(xgb.XGBRegressor):
     def __init__(self):
         """Initialize the XGBoost regression model."""
 
-        super().__init__(
-            early_stopping_rounds=15,
-            eval_metric='rmse'
-        )
+        super().__init__(early_stopping_rounds=15, eval_metric="rmse")
 
     def fit(self, X: pd.DataFrame, y: pd.Series, **kwargs) -> pd.DataFrame:
         """Fit the XGBoost regression model to the merged dataset.
@@ -43,13 +40,13 @@ class HousePricesXGBRegressor(xgb.XGBRegressor):
 
         # Handle eval_set if provided, and apply log1p transformation to the
         # target variable in each eval set
-        eval_set = kwargs.pop('eval_set', None)
+        eval_set = kwargs.pop("eval_set", None)
         if eval_set is not None:
             eval_set_transformed = []
             for X_eval, y_eval in eval_set:
                 y_eval_transformed = np.log1p(y_eval)
                 eval_set_transformed.append((X_eval, y_eval_transformed))
-            kwargs['eval_set'] = eval_set_transformed
+            kwargs["eval_set"] = eval_set_transformed
 
         return super().fit(X, y, **kwargs)
 
@@ -77,16 +74,18 @@ class HousePricesXGBRegressor(xgb.XGBRegressor):
         # Check if postcodes are provided for indexing
         if postcodes is not None:
             return pd.Series(
-                y_pred,
-                index=np.asarray(postcodes),
-                name="medianPrice")
+                y_pred, index=np.asarray(postcodes), name="medianPrice"
+            )
         else:
             return pd.Series(y_pred, name="medianPrice")
 
-    def predict_from_postcodes(self, postcodes: Sequence[str],
-                               postcode_pred: Sequence[str],
-                               postcode_nan: Sequence[str],
-                               X: pd.DataFrame) -> pd.Series:
+    def predict_from_postcodes(
+        self,
+        postcodes: Sequence[str],
+        postcode_pred: Sequence[str],
+        postcode_nan: Sequence[str],
+        X: pd.DataFrame,
+    ) -> pd.Series:
         """Predict house prices for a list of postcodes, handling missing data.
 
         Parameters:
@@ -115,7 +114,7 @@ class HousePricesXGBRegressor(xgb.XGBRegressor):
         y_nan = pd.Series(
             median_house_price,
             index=np.asarray(postcode_nan),
-            name="medianPrice"
+            name="medianPrice",
         )
         if X.shape[0] == 0:
             # If there are no postcodes with data, return only the fallback

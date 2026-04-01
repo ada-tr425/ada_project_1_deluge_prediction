@@ -10,8 +10,11 @@ class KNNLocalAuthorityModel:
     This corresponds to the predict_local_authority interface.
 
     """
+
     def __init__(self, n_neighbors=1):
-        self.model = KNeighborsClassifier(n_neighbors=n_neighbors, algorithm='ball_tree')
+        self.model = KNeighborsClassifier(
+            n_neighbors=n_neighbors, algorithm="ball_tree"
+        )
         self.le = LabelEncoder()
 
     def fit(self, X: pd.DataFrame, y: pd.Series):
@@ -48,8 +51,11 @@ class KNNFloodRiskModel:
     Corresponding to the `predict_flood_class_from_OSGB36_location` interface.
 
     """
+
     def __init__(self, n_neighbors=10):
-        self.model = KNeighborsRegressor(n_neighbors=n_neighbors, weights='distance', algorithm='ball_tree')
+        self.model = KNeighborsRegressor(
+            n_neighbors=n_neighbors, weights="distance", algorithm="ball_tree"
+        )
 
     def fit(self, X: pd.DataFrame, y: pd.Series):
         """

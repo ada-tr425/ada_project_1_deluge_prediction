@@ -3,8 +3,10 @@ import numpy as np
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import (
-    RobustScaler, FunctionTransformer, OneHotEncoder
-    )
+    RobustScaler,
+    FunctionTransformer,
+    OneHotEncoder,
+)
 from sklearn.model_selection import train_test_split
 from collections.abc import Sequence
 from .utils import read_csv_from_preprocessed_data
@@ -30,11 +32,11 @@ def _drop_columns(df: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
         A DataFrame with the specified columns dropped.
     """
     df = df.copy()
-    return df.drop(columns=columns, errors='ignore')
+    return df.drop(columns=columns, errors="ignore")
 
 
 def _distance_to_london(easting: pd.Series, northing: pd.Series) -> pd.Series:
-    """ Calculate the distance to London from easting and northing coordinates.
+    """Calculate the distance to London from easting and northing coordinates.
     london_easting = 530000
     london_northing = 180000
     return np.sqrt((easting - london_easting) ** 2 +
@@ -59,8 +61,9 @@ def _distance_to_london(easting: pd.Series, northing: pd.Series) -> pd.Series:
     """
     london_easting = 530000
     london_northing = 180000
-    return np.sqrt((easting - london_easting) ** 2 +
-                   (northing - london_northing) ** 2)
+    return np.sqrt(
+        (easting - london_easting) ** 2 + (northing - london_northing) ** 2
+    )
 
 
 def _split_num_cat_features(df: pd.DataFrame) -> tuple[pd.Index, pd.Index]:
@@ -107,16 +110,17 @@ def group_by_feature(district_data: pd.DataFrame, column: str) -> pd.DataFrame:
     df = district_data.copy()
     num_features, cat_features = _split_num_cat_features(df)
 
-    df[num_features] = df.groupby(column)[num_features].transform(
-        'median')
+    df[num_features] = df.groupby(column)[num_features].transform("median")
     df[cat_features] = df.groupby(column)[cat_features].transform(
-        lambda x: x.mode().iloc[0])
+        lambda x: x.mode().iloc[0]
+    )
 
     return df
 
 
-def unit_district_merge(unit_data: pd.DataFrame,
-                        district_data: pd.DataFrame) -> pd.DataFrame:
+def unit_district_merge(
+    unit_data: pd.DataFrame, district_data: pd.DataFrame
+) -> pd.DataFrame:
     """
     Prepare input data by merging unit-level and district-level data.
 
@@ -135,21 +139,22 @@ def unit_district_merge(unit_data: pd.DataFrame,
     """
     unit_data = unit_data.copy()
     district_data = district_data.copy()
-    district_data = group_by_feature(district_data, 'postcodeDistrict')
+    district_data = group_by_feature(district_data, "postcodeDistrict")
 
     merged_df = pd.merge(
         unit_data,
         district_data,
-        on='postcodeDistrict',
-        how='inner',
-        suffixes=(None, '_district')
+        on="postcodeDistrict",
+        how="inner",
+        suffixes=(None, "_district"),
     )
 
     return merged_df
 
 
-def unit_sector_merge(unit_data: pd.DataFrame,
-                      sector_data: pd.DataFrame) -> pd.DataFrame:
+def unit_sector_merge(
+    unit_data: pd.DataFrame, sector_data: pd.DataFrame
+) -> pd.DataFrame:
     """
     Prepare input data by merging unit-level and sector-level data.
 
@@ -168,21 +173,22 @@ def unit_sector_merge(unit_data: pd.DataFrame,
     """
     unit_data = unit_data.copy()
     sector_data = sector_data.copy()
-    sector_data = group_by_feature(sector_data, 'postcodeSector')
+    sector_data = group_by_feature(sector_data, "postcodeSector")
 
     merged_df = pd.merge(
         unit_data,
         sector_data,
-        on='postcodeSector',
-        how='inner',
-        suffixes=(None, '_sector')
+        on="postcodeSector",
+        how="inner",
+        suffixes=(None, "_sector"),
     )
 
     return merged_df
 
 
-def _inter_house_proc_pipeline(columns_to_drop: list[str],
-                               num_features: list[str]) -> ColumnTransformer:
+def _inter_house_proc_pipeline(
+    columns_to_drop: list[str], num_features: list[str]
+) -> ColumnTransformer:
     """
     Create a processing pipeline for the merged postcode and
     sector-level data. Applies the following:
@@ -206,34 +212,41 @@ def _inter_house_proc_pipeline(columns_to_drop: list[str],
     """
 
     num_features = pd.Index(num_features)
-    cat_features = pd.Index(['soilType'])
+    cat_features = pd.Index(["soilType"])
 
-    column_dropper = FunctionTransformer(_drop_columns, kw_args={
-        'columns': columns_to_drop},
+    column_dropper = FunctionTransformer(
+        _drop_columns,
+        kw_args={"columns": columns_to_drop},
         feature_names_out=None,
-        validate=False)
+        validate=False,
+    )
 
-    num_pipe = Pipeline(steps=[
-        ('scaler', RobustScaler())
-        ])
-    cat_pipe = Pipeline(steps=[
-        ('onehot', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
-        ])
+    num_pipe = Pipeline(steps=[("scaler", RobustScaler())])
+    cat_pipe = Pipeline(
+        steps=[
+            (
+                "onehot",
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+            )
+        ]
+    )
 
-    proc_inter = ColumnTransformer(transformers=[
-        ('num', num_pipe, num_features),
-        ('cat', cat_pipe, cat_features)
-    ], verbose_feature_names_out=False)
+    proc_inter = ColumnTransformer(
+        transformers=[
+            ("num", num_pipe, num_features),
+            ("cat", cat_pipe, cat_features),
+        ],
+        verbose_feature_names_out=False,
+    )
 
-    proc_pipe = Pipeline(steps=[
-        ('drop_columns', column_dropper),
-        ('processing', proc_inter)
-    ])
+    proc_pipe = Pipeline(
+        steps=[("drop_columns", column_dropper), ("processing", proc_inter)]
+    )
 
     return proc_pipe
 
 
-def house_proc_pipeline(merge_with: str = 'sector') -> pd.DataFrame:
+def house_proc_pipeline(merge_with: str = "sector") -> pd.DataFrame:
     """
     Prepare a processing pipeline for working with postcode data merged
     with either district-level or sector-level data.
@@ -251,28 +264,54 @@ def house_proc_pipeline(merge_with: str = 'sector') -> pd.DataFrame:
     """
 
     # Define columns to drop and numerical features for each merge type
-    columns_to_drop = ['postcode', 'postcodeDistrict_sector',
-                       'postcodeDistrict', 'postcodeSector',
-                       'longitude', 'latitude', 'nearestWatercourse',
-                       'localAuthority', 'riskLabel', 'historicallyFlooded',
-                       'headcount']
-    num_cols_dist = ['easting', 'northing', 'elevation',
-                     'distanceToWatercourse', 'catsPerHousehold',
-                     'dogsPerHousehold', 'pre_1900', '1900_1929',
-                     '1930_1945', '1945_1964', '1965_1982',
-                     '1983_1999', '2000_present', 'unknown']
-    num_cols_sect = ['easting', 'northing', 'elevation',
-                     'distanceToWatercourse', 'households',
-                     'numberOfPostcodeUnits']
+    columns_to_drop = [
+        "postcode",
+        "postcodeDistrict_sector",
+        "postcodeDistrict",
+        "postcodeSector",
+        "longitude",
+        "latitude",
+        "nearestWatercourse",
+        "localAuthority",
+        "riskLabel",
+        "historicallyFlooded",
+        "headcount",
+    ]
+    num_cols_dist = [
+        "easting",
+        "northing",
+        "elevation",
+        "distanceToWatercourse",
+        "catsPerHousehold",
+        "dogsPerHousehold",
+        "pre_1900",
+        "1900_1929",
+        "1930_1945",
+        "1945_1964",
+        "1965_1982",
+        "1983_1999",
+        "2000_present",
+        "unknown",
+    ]
+    num_cols_sect = [
+        "easting",
+        "northing",
+        "elevation",
+        "distanceToWatercourse",
+        "households",
+        "numberOfPostcodeUnits",
+    ]
 
     # Merge and prepare processing pipeline based on merge_with parameter
-    if merge_with == 'district':
-        proc_pipe = _inter_house_proc_pipeline(columns_to_drop=columns_to_drop,
-                                               num_features=num_cols_dist)
+    if merge_with == "district":
+        proc_pipe = _inter_house_proc_pipeline(
+            columns_to_drop=columns_to_drop, num_features=num_cols_dist
+        )
 
-    elif merge_with == 'sector':
-        proc_pipe = _inter_house_proc_pipeline(columns_to_drop=columns_to_drop,
-                                               num_features=num_cols_sect)
+    elif merge_with == "sector":
+        proc_pipe = _inter_house_proc_pipeline(
+            columns_to_drop=columns_to_drop, num_features=num_cols_sect
+        )
 
     else:
         raise ValueError("merge_with must be either 'district' or 'sector'")
@@ -326,15 +365,20 @@ def get_postcode_district_sector(postcodes: Sequence) -> pd.DataFrame:
         Postcode_Sector.append(str(Outward + " " + Inward[0]).upper())
         Postcode_Formatted.append(str(Outward + " " + Inward).upper())
 
-    DF = pd.DataFrame({"postcode": Postcode_Formatted,
-                       "postcodeSector": Postcode_Sector,
-                       "postcodeDistrict": Postcode_District})
+    DF = pd.DataFrame(
+        {
+            "postcode": Postcode_Formatted,
+            "postcodeSector": Postcode_Sector,
+            "postcodeDistrict": Postcode_District,
+        }
+    )
 
     return DF
 
 
 def predict_house_price_from_postcodes_df(
-        postcodes: Sequence[str]) -> pd.DataFrame:
+    postcodes: Sequence[str],
+) -> pd.DataFrame:
     """Predict house prices for a list of postcodes for plotting.
 
     Note this function is not an ideal implementation. It is intended as a
@@ -356,27 +400,29 @@ def predict_house_price_from_postcodes_df(
 
     # Preparing the data for training and fitting the model
     unit_prep = read_csv_from_preprocessed_data(
-        "postcodes_impute_postcode_method.csv")
-    sector_prep = read_csv_from_preprocessed_data(
-        "sector_preprocessed.csv")
+        "postcodes_impute_postcode_method.csv"
+    )
+    sector_prep = read_csv_from_preprocessed_data("sector_preprocessed.csv")
 
     merge_sector = unit_sector_merge(unit_prep, sector_prep)
 
-    house_proc_pipe = house_proc_pipeline(merge_with='sector')
+    house_proc_pipe = house_proc_pipeline(merge_with="sector")
 
-    X = merge_sector.drop(columns=['medianPrice'])
-    y = merge_sector['medianPrice']
+    X = merge_sector.drop(columns=["medianPrice"])
+    y = merge_sector["medianPrice"]
 
-    X_train, X_val, y_train, y_val = train_test_split(X, y, test_size=0.1,
-                                                      random_state=42)
+    X_train, X_val, y_train, y_val = train_test_split(
+        X, y, test_size=0.1, random_state=42
+    )
     X_train = house_proc_pipe.fit_transform(X_train)
     X_val = house_proc_pipe.transform(X_val)
 
     house_price_xgb = HousePricesXGBRegressor().fit(
-                    X_train, y_train,
-                    eval_set=[(X_train, y_train), (X_val, y_val)],
-                    verbose=False
-                    )
+        X_train,
+        y_train,
+        eval_set=[(X_train, y_train), (X_val, y_val)],
+        verbose=False,
+    )
 
     # Preparing the input data for prediction
     postcode_df = get_postcode_district_sector(postcodes)
@@ -385,31 +431,31 @@ def predict_house_price_from_postcodes_df(
     _sector = sector_prep.copy()
 
     # Extract only relevant postcodes and sector data
-    _unit = _unit[_unit['postcode'].isin(
-        postcode_df['postcode'])]
-    _sector = _sector[_sector['postcodeSector'].isin(
-        postcode_df['postcodeSector'])]
+    _unit = _unit[_unit["postcode"].isin(postcode_df["postcode"])]
+    _sector = _sector[
+        _sector["postcodeSector"].isin(postcode_df["postcodeSector"])
+    ]
 
     # Merge unit and sector data
     merge_sector = unit_sector_merge(_unit, _sector)
 
     # Apply processing pipeline and drop target column if any
-    X = house_proc_pipe.transform(merge_sector.drop(
-        columns=['medianPrice']))
+    X = house_proc_pipe.transform(merge_sector.drop(columns=["medianPrice"]))
 
     # Trim to only the postcodes found in the datasets
-    postcodes_nan = postcode_df[~postcode_df['postcode'].isin(
-        merge_sector['postcode'])]['postcode'].tolist()
-    postcodes_pred = merge_sector['postcode'].tolist()
+    postcodes_nan = postcode_df[
+        ~postcode_df["postcode"].isin(merge_sector["postcode"])
+    ]["postcode"].tolist()
+    postcodes_pred = merge_sector["postcode"].tolist()
 
     y_pred = house_price_xgb.predict_from_postcodes(
         postcodes,
         postcode_pred=postcodes_pred,
         postcode_nan=postcodes_nan,
-        X=X
+        X=X,
     )
 
     y_pred_df = merge_sector.copy()
-    y_pred_df['medianPrice'] = y_pred[postcodes_pred].values
+    y_pred_df["medianPrice"] = y_pred[postcodes_pred].values
 
     return y_pred_df

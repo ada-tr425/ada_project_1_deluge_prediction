@@ -20,8 +20,8 @@ __all__ = [
 ]
 
 # Paths to data files. Can read example data as
-WET_DAY_DATA = read_csv_from_example_data('wet_day.csv')
-DRY_DAY_DATA = read_csv_from_example_data('typical_day.csv')
+WET_DAY_DATA = read_csv_from_example_data("wet_day.csv")
+DRY_DAY_DATA = read_csv_from_example_data("typical_day.csv")
 
 STATION_DATA = read_csv_from_resources("stations.csv")
 

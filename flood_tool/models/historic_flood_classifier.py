@@ -19,13 +19,18 @@ from sklearn.metrics import (
 
 
 # Paths for saving model and CV report
-MODEL_PATH = Path(__file__).resolve().parents[1] / "resources" / "historic_flood_classifier.pkl"
+MODEL_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "resources"
+    / "historic_flood_classifier.pkl"
+)
 REPORT_DIR = Path(__file__).resolve().parents[1] / "reports"
 REPORT_DIR.mkdir(parents=True, exist_ok=True)
 
 RANDOM_STATE = 42
 
 DECISION_THRESHOLD = 0.4
+
 
 def load_labelled_data() -> pd.DataFrame:
     """
@@ -42,12 +47,10 @@ def load_labelled_data() -> pd.DataFrame:
     df = pd.read_csv(data_path)
 
     # Quick sanity checks
-    
+
     # print(df.head())
 
     return df
-
-
 
 
 def build_preprocessor(df: pd.DataFrame):
@@ -63,21 +66,31 @@ def build_preprocessor(df: pd.DataFrame):
     feature_cols = [c for c in df.columns if c not in id_cols + [target_col]]
 
     # Split into numeric and categorical features
-    numeric_features = df[feature_cols].select_dtypes(include="number").columns.tolist()
-    categorical_features = [c for c in feature_cols if c not in numeric_features]
+    numeric_features = (
+        df[feature_cols].select_dtypes(include="number").columns.tolist()
+    )
+    categorical_features = [
+        c for c in feature_cols if c not in numeric_features
+    ]
 
     # Numeric pipeline: impute missing values with median + standardize
-    numeric_tf = Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler()),
-    ])
+    numeric_tf = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+        ]
+    )
 
     # Categorical pipeline: impute with most frequent value + one-hot encode
-    categorical_tf = Pipeline([
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False)),
-
-    ])
+    categorical_tf = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            (
+                "onehot",
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+            ),
+        ]
+    )
 
     # Combine both into a single ColumnTransformer
     preprocessor = ColumnTransformer(
@@ -111,16 +124,16 @@ def build_historic_rf(df: pd.DataFrame) -> Pipeline:
         class_weight={0: 1.0, 1: 3.0},
     )
 
-    pipe = Pipeline([
-        ("preprocessor", preprocessor),
-        ("model", clf),
-    ])
+    pipe = Pipeline(
+        [
+            ("preprocessor", preprocessor),
+            ("model", clf),
+        ]
+    )
 
     pipe.fit(X, y)
 
     return pipe
-
-
 
 
 def train_and_evaluate(df: pd.DataFrame):
@@ -157,7 +170,7 @@ def train_and_evaluate(df: pd.DataFrame):
         random_state=RANDOM_STATE,
     )
 
-    # cross_val_predict 
+    # cross_val_predict
     y_proba = cross_val_predict(
         pipe,
         X,
@@ -173,30 +186,26 @@ def train_and_evaluate(df: pd.DataFrame):
     # Metrics
     acc = accuracy_score(y, y_pred)
     f1 = f1_score(y, y_pred, pos_label=1)
-    
-    
+
     print(
         f"\n Cross-validated performance on labelled data "
         f"(threshold = {DECISION_THRESHOLD}) "
     )
-    #print(f"Accuracy: {acc:.3f}")
-    #print(f"F1-score (class 1 = historically flooded): {f1:.3f}")
+    # print(f"Accuracy: {acc:.3f}")
+    # print(f"F1-score (class 1 = historically flooded): {f1:.3f}")
 
-    #print("\nClassification report:")
+    # print("\nClassification report:")
     report_str = classification_report(y, y_pred)
-    #print(report_str)
+    # print(report_str)
 
     cm = confusion_matrix(y, y_pred)
-    #print("Confusion matrix:")
-    #print(cm)
-    
+    # print("Confusion matrix:")
+    # print(cm)
 
-    # Save CV report as a text file 
+    # Save CV report as a text file
     report_path = REPORT_DIR / "historic_flood_classifier_cv_report.txt"
     with open(report_path, "w") as f:
-        f.write(
-            f"Decision threshold: {DECISION_THRESHOLD:.3f}\n"
-        )
+        f.write(f"Decision threshold: {DECISION_THRESHOLD:.3f}\n")
         f.write("Accuracy: {:.4f}\n".format(acc))
         f.write("F1-score (class 1): {:.4f}\n\n".format(f1))
         f.write("Confusion matrix:\n")
@@ -207,11 +216,6 @@ def train_and_evaluate(df: pd.DataFrame):
     print(f"\nCV report written to: {report_path}")
 
     return pipe, cm, acc, f1
-
-
-
-
-
 
 
 def predict_postcode(postcode: str) -> pd.DataFrame:
@@ -239,25 +243,27 @@ def predict_postcode(postcode: str) -> pd.DataFrame:
         print(f"No row found for postcode '{postcode}'.")
         return row
 
-
-    # 4) Make prediction
-    y_proba = model.predict_proba(row)[:, 1]
+    # 3–4) Load trained pipeline and predict
+    pipe = joblib.load(MODEL_PATH)
+    y_proba = pipe.predict_proba(row)[:, 1]
     y_pred = (y_proba >= DECISION_THRESHOLD).astype(int)
-
 
     row["predictedHistoricFlooded"] = y_pred
     row["predictedFloodProb"] = y_proba
-    
+
     print(
-        row[[
-            "postcode",
-            "historicallyFlooded",
-            "predictedHistoricFlooded",
-            "predictedFloodProb",
-        ]]
+        row[
+            [
+                "postcode",
+                "historicallyFlooded",
+                "predictedHistoricFlooded",
+                "predictedFloodProb",
+            ]
+        ]
     )
 
     return row
+
 
 if __name__ == "__main__":
 

@@ -134,15 +134,17 @@ def plot_risk_map(risk_data, coordinate=["easting", "northing"], dx=10000):
     Zn = np.zeros(nx, int)
 
     for x, y, val in risk_data[coordinate + ["riskLabel"]].values:
-        Z[math.floor((x - bbox[0]) / dx),
-          math.floor((y - bbox[2]) / dx)] += val
-        Zn[math.floor((x - bbox[0]) / dx),
-           math.floor((y - bbox[2]) / dx)] += 1
+        Z[
+            math.floor((x - bbox[0]) / dx), math.floor((y - bbox[2]) / dx)
+        ] += val
+        Zn[math.floor((x - bbox[0]) / dx), math.floor((y - bbox[2]) / dx)] += 1
 
     Z = Z / np.where(Zn > 0, Zn, 1)
 
     plt.pcolormesh(
-        X, Y, np.where(Z > 0, Z, np.nan).T,
+        X,
+        Y,
+        np.where(Z > 0, Z, np.nan).T,
     )
     plt.axis("equal")
     plt.colorbar()

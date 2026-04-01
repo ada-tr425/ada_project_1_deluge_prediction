@@ -28,7 +28,11 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    accuracy_score,
+)
 
 # 1. Paths and Constants
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,7 +46,7 @@ DISTRICT_IMPUTED = RESOURCES / "district_preprocessed.csv"
 MODEL_OUT = ROOT / "resources" / "seven_class_probability_classifier.pkl"
 MODEL_OUT.parent.mkdir(parents=True, exist_ok=True)
 
-CLASS_LABELS = [1,2,3,4,5,6,7]
+CLASS_LABELS = [1, 2, 3, 4, 5, 6, 7]
 RANDOM_STATE = 42
 
 
@@ -63,10 +67,14 @@ def load_data() -> pd.DataFrame:
 # 3. Build Feature Pipeline
 def build_preprocessor(df: pd.DataFrame):
     numeric_base = [
-        "longitude","latitude","elevation",
-        "distanceToWatercourse","medianPrice","historicallyFlooded"
+        "longitude",
+        "latitude",
+        "elevation",
+        "distanceToWatercourse",
+        "medianPrice",
+        "historicallyFlooded",
     ]
-    categorical_base = ["soilType","nearestWatercourse","localAuthority"]
+    categorical_base = ["soilType", "nearestWatercourse", "localAuthority"]
 
     numeric_features = [c for c in numeric_base if c in df.columns]
     categorical_features = [c for c in categorical_base if c in df.columns]
@@ -76,7 +84,12 @@ def build_preprocessor(df: pd.DataFrame):
     for col in df.columns:
         if col in numeric_features or col in categorical_features:
             continue
-        if col in ["postcode","postcodeDistrict","postcodeSector","riskLabel"]:
+        if col in [
+            "postcode",
+            "postcodeDistrict",
+            "postcodeSector",
+            "riskLabel",
+        ]:
             continue
         if pd.api.types.is_numeric_dtype(df[col]):
             district_numeric.append(col)
@@ -84,22 +97,29 @@ def build_preprocessor(df: pd.DataFrame):
     numeric_features += district_numeric
 
     # Transformers
-    numeric_tf = Pipeline([
-        ("imputer", SimpleImputer(strategy="median")),
-        ("scaler", StandardScaler())
-    ])
+    numeric_tf = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="median")),
+            ("scaler", StandardScaler()),
+        ]
+    )
 
-    categorical_tf = Pipeline([
-        ("imputer", SimpleImputer(strategy="most_frequent")),
-        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
-    ])
+    categorical_tf = Pipeline(
+        [
+            ("imputer", SimpleImputer(strategy="most_frequent")),
+            (
+                "onehot",
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+            ),
+        ]
+    )
 
     preprocessor = ColumnTransformer(
         transformers=[
             ("num", numeric_tf, numeric_features),
             ("cat", categorical_tf, categorical_features),
         ],
-        remainder="drop"
+        remainder="drop",
     )
 
     return preprocessor, numeric_features + categorical_features
@@ -117,18 +137,17 @@ def train_and_evaluate(df: pd.DataFrame, cv: bool = True):
         n_estimators=300,
         class_weight="balanced",
         n_jobs=-1,
-        random_state=RANDOM_STATE
+        random_state=RANDOM_STATE,
     )
 
-    pipe = Pipeline([
-        ("preprocessor", preprocessor),
-        ("model", clf)
-    ])
+    pipe = Pipeline([("preprocessor", preprocessor), ("model", clf)])
 
     # CV prediction
     if cv:
         print("Running 5-fold cross-validation...")
-        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=RANDOM_STATE)
+        skf = StratifiedKFold(
+            n_splits=5, shuffle=True, random_state=RANDOM_STATE
+        )
         preds = cross_val_predict(pipe, X, y, cv=skf)
 
         acc = accuracy_score(y, preds)
