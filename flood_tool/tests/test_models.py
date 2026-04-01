@@ -110,7 +110,9 @@ class TestModalLocalAuthorityModel:
         predictions = self.model.predict_from_location(locations)
 
         assert isinstance(predictions, pd.Series)
-        assert predictions.dtype == object
+        assert pd.api.types.is_object_dtype(predictions.dtype) or (
+            pd.api.types.is_string_dtype(predictions.dtype)
+        )
         assert predictions.index.isin(locations).all()
         assert pd.Index(locations).isin(predictions.index).all()
         assert all(predictions == "AuthorityA")

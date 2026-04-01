@@ -94,7 +94,7 @@ def get_stations(data: str | pd.DataFrame = STATION_DATA) -> pd.DataFrame:
     2    000075TP
     3    000076TP
     4    000180TP
-    Name: stationReference, dtype: object
+    Name: stationReference, dtype: str
     """
 
     if isinstance(data, str):
