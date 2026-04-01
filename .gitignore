@@ -12,9 +12,6 @@ _pycache_/
 # Ignore Mac OS X temporary files
 .DS_Store
 
-# Local virtual environments
-.venv/
-
 # Ignore build/installation temporary files
 build/
 *.egg-info/
