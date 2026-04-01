@@ -1,3 +1,11 @@
+## 项目说明（中文）
+
+本项目为 **Exe Software 洪水风险预测工具**：面向英格兰地区邮编或地理坐标，提供洪水风险与房价相关的建模与可视化能力。核心能力包括：七级洪水概率分类、邮编房价中位数回归、历史是否发生洪水的二分类、根据经纬度推断地方行政区与洪水风险，以及交互式地图展示。
+
+以下为英文说明原文（后半部分为仓库既有说明，未作翻译）。
+
+---
+
 # Exe Software Flood Risk Prediction tool
 
 This README.md provides a detailed description of the software architecture and operational workflow, and it formally documents the functionality contained within the flood_tool package.
